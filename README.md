@@ -18,7 +18,7 @@ CommandRex allows you to interact with your terminal using natural language. Sim
 
 ## Requirements
 
-- Python 3.11 or higher
+- Python 3.10 or higher
 - OpenAI API key (get one at [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys))
 - Internet connection for API communication
 
@@ -33,9 +33,17 @@ pip install commandrex
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/commandrex.git
-cd commandrex
+git clone https://github.com/siddhantparadox/commandrex-cli.git
+cd commandrex-cli
 pip install -e .
+```
+
+### Using Poetry
+
+```bash
+git clone https://github.com/siddhantparadox/commandrex-cli.git
+cd commandrex-cli
+poetry install
 ```
 
 ## Usage
