@@ -48,42 +48,59 @@ poetry install
 
 ## Usage
 
+CommandRex can be invoked using either `commandrex` or `python -m commandrex` followed by a command (run, translate, explain) and options.
+
+For example:
+- `commandrex run` - Start interactive mode
+- `commandrex translate "query"` - Translate a natural language query
+- `commandrex explain "command"` - Explain a shell command
+
 ### Interactive Mode
 
 Start the interactive terminal interface:
 
 ```bash
-python -m commandrex run
+commandrex run
 ```
 
-This launches CommandRex in interactive mode, where you can type natural language requests and see them translated into terminal commands.
+This launches CommandRex in interactive mode, where you can type natural language requests and get immediate command translations.
 
-For more detailed information:
+**Options:**
+- `--debug` or `-d`: Enable debug mode with detailed system information
+- `--api-key YOUR_KEY`: Use a specific OpenAI API key for this session
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
+- `--translate "query"` or `-t "query"`: Directly translate a query without entering interactive mode
+
+**Example:**
+```bash
+commandrex run --model gpt-4o --debug
+```
+
+### Command Translation
+
+Translate natural language to a shell command:
 
 ```bash
-python -m commandrex run --debug
+commandrex translate "list all files in the current directory including hidden ones"
 ```
 
-### Translate a Command
+**Options:**
+- `--execute` or `-e`: Execute the translated command after showing it
+- `--api-key YOUR_KEY`: Use a specific OpenAI API key for this translation
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
 
-Translate a natural language query to a shell command:
-
+**Examples:**
 ```bash
-python -m commandrex translate "list all files in the current directory including hidden ones"
+commandrex translate "find all PDF files modified in the last week"
+commandrex translate "create a backup of my Documents folder" --execute
 ```
 
-Add the `--execute` flag to automatically execute the translated command:
-
-```bash
-python -m commandrex translate "create a new directory called projects" --execute
-```
-
-### Explain a Command
+### Command Explanation
 
 Get a detailed explanation of a shell command:
 
 ```bash
-python -m commandrex explain "grep -r 'TODO' --include='*.py' ."
+commandrex explain "grep -r 'TODO' --include='*.py' ."
 ```
 
 This will provide:
@@ -92,38 +109,85 @@ This will provide:
 - Safety assessment
 - Related commands and examples
 
-### API Key Management
+**Options:**
+- `--api-key YOUR_KEY`: Use a specific OpenAI API key for this explanation
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
 
-Reset your stored API key:
+### Help Command
+
+Get help information about CommandRex and its commands:
 
 ```bash
-python -m commandrex --reset-api-key
+commandrex --help
 ```
 
-### Other Options
+### Global Options
 
-View version information:
+These options work with any command:
 
+- `--version` or `-v`: Show the application version
+- `--reset-api-key`: Reset the stored OpenAI API key
+
+**Examples:**
 ```bash
-python -m commandrex --version
+commandrex --version
+commandrex --reset-api-key
 ```
 
-Use a different OpenAI model:
+### First-Time Setup
 
+When you first run CommandRex, it will:
+
+1. Ask for your OpenAI API key (get one at https://platform.openai.com/api-keys)
+2. Store this key securely in your system's keyring
+3. Detect your shell environment and operating system
+
+The API key setup only happens once; the key is stored securely for future use.
+
+### Example Workflow
+
+**Basic Translation:**
 ```bash
-python -m commandrex run --model gpt-4o
+# Translate a natural language query to a command
+commandrex translate "find large files in my Downloads folder"
 ```
 
-Enable debug mode:
-
+**Translation with Execution:**
 ```bash
-python -m commandrex run --debug
+# Translate and execute a command
+commandrex translate "create a directory structure for my new project" --execute
 ```
 
-See help:
-
+**Interactive Mode:**
 ```bash
-python -m commandrex run --help
+# Start interactive mode
+commandrex run
+
+# In interactive mode:
+# 1. Type your request and press Enter
+# 2. See the translation and explanation
+# 3. Choose whether to execute it
+# 4. Type 'exit' or press Ctrl+C to quit
+```
+
+### Troubleshooting
+
+**API Key Issues:**
+```bash
+# Reset your API key
+commandrex --reset-api-key
+```
+
+**Command Accuracy:**
+If a translated command doesn't match your intent:
+1. Try being more specific in your request
+2. Use the interactive mode to refine your query
+3. Try a different model with `--model gpt-4o` for potentially better results
+
+**Shell Detection:**
+```bash
+# Run in debug mode to see detected shell information
+commandrex run --debug
 ```
 
 ## Examples
