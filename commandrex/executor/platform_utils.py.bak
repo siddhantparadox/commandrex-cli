@@ -1,0 +1,309 @@
+"""
+Platform detection and utilities for CommandRex.
+
+This module provides functions to detect the operating system,
+shell environment, and system capabilities to ensure cross-platform
+compatibility.
+"""
+
+import os
+import sys
+import platform
+import shutil
+import subprocess
+from typing import Dict, List, Optional, Tuple
+
+
+def get_platform_info() -> Dict[str, str]:
+    """
+    Get detailed information about the current platform.
+    
+    Returns:
+        Dict[str, str]: Dictionary containing platform information.
+    """
+    info = {
+        "os_name": platform.system(),
+        "os_release": platform.release(),
+        "os_version": platform.version(),
+        "architecture": platform.machine(),
+        "python_version": platform.python_version(),
+        "platform_details": platform.platform(),
+    }
+    
+    # Add shell information if available
+    shell_info = detect_shell()
+    if shell_info:
+        info["shell_name"] = shell_info[0]
+        info["shell_version"] = shell_info[1]
+    
+    return info
+
+
+def is_windows() -> bool:
+    """
+    Check if the current platform is Windows.
+    
+    Returns:
+        bool: True if Windows, False otherwise.
+    """
+    return platform.system().lower() == "windows"
+
+
+def is_macos() -> bool:
+    """
+    Check if the current platform is macOS.
+    
+    Returns:
+        bool: True if macOS, False otherwise.
+    """
+    return platform.system().lower() == "darwin"
+
+
+def is_linux() -> bool:
+    """
+    Check if the current platform is Linux.
+    
+    Returns:
+        bool: True if Linux, False otherwise.
+    """
+    return platform.system().lower() == "linux"
+
+
+def detect_shell() -> Optional[Tuple[str, str]]:
+    """
+    Detect the current shell environment and version.
+    
+    Returns:
+        Optional[Tuple[str, str]]: Tuple of (shell_name, shell_version) or None if detection fails.
+    """
+    shell_name = ""
+    shell_version = ""
+    
+    # On Windows, we need to be more careful about shell detection
+    if is_windows():
+        # Try to detect the actual shell by checking the process name
+        try:
+            # Check if we're running in cmd.exe
+            if "cmd.exe" in os.environ.get("ComSpec", "").lower():
+                # Check if we're in a direct cmd.exe process
+                if not any(ps_var for ps_var in os.environ.keys() if ps_var.startswith("PS")):
+                    shell_name = "cmd"
+            
+            # Check for PowerShell-specific environment variables
+            if not shell_name and any(ps_var for ps_var in os.environ.keys() if ps_var.startswith("PS")):
+                # Determine if it's PowerShell Core (pwsh) or Windows PowerShell
+                if "PSCore" in os.environ.get("PSModulePath", "") or os.environ.get("POWERSHELL_DISTRIBUTION_CHANNEL"):
+                    shell_name = "pwsh"
+                else:
+                    shell_name = "powershell"
+        except Exception:
+            # If process detection fails, fall back to environment variables
+            pass
+    
+    # If shell wasn't detected yet, fall back to standard detection
+    if not shell_name:
+        # Try to get from environment variables
+        shell_path = os.environ.get("SHELL") or os.environ.get("COMSPEC")
+        
+        if not shell_path and is_windows():
+            # On Windows, default to cmd.exe if not found
+            shell_path = "cmd.exe"
+        
+        if not shell_path:
+            return None
+        
+        shell_name = os.path.basename(shell_path).lower()
+        
+        # Extract shell name without extension
+        if "." in shell_name:
+            shell_name = shell_name.split(".")[0]
+    
+    # Try to get shell version
+    try:
+        if shell_name == "bash":
+            result = subprocess.run(
+                ["bash", "--version"], 
+                capture_output=True, 
+                text=True, 
+                timeout=2
+            )
+            if result.stdout:
+                # Extract version from output like "GNU bash, version 5.1.16"
+                parts = result.stdout.split("\n")[0].split("version ")
+                if len(parts) > 1:
+                    shell_version = parts[1].split()[0]
+        
+        elif shell_name == "zsh":
+            result = subprocess.run(
+                ["zsh", "--version"], 
+                capture_output=True, 
+                text=True, 
+                timeout=2
+            )
+            if result.stdout:
+                # Extract version from output like "zsh 5.8"
+                parts = result.stdout.split()
+                if len(parts) > 1:
+                    shell_version = parts[1]
+        
+        elif shell_name in ("powershell", "pwsh"):
+            # Use the appropriate PowerShell executable
+            ps_exec = "pwsh" if shell_name == "pwsh" else "powershell"
+            
+            # Try to get PowerShell version
+            result = subprocess.run(
+                [ps_exec, "-Command", "$PSVersionTable.PSVersion.ToString()"], 
+                capture_output=True, 
+                text=True, 
+                timeout=2
+            )
+            if result.stdout:
+                shell_version = result.stdout.strip()
+        
+        elif shell_name == "cmd":
+            # For cmd.exe, try to get the version directly
+            try:
+                result = subprocess.run(
+                    ["cmd", "/c", "ver"], 
+                    capture_output=True, 
+                    text=True, 
+                    timeout=2
+                )
+                if result.stdout:
+                    # Extract version from output like "Microsoft Windows [Version 10.0.19045.3693]"
+                    version_line = result.stdout.strip()
+                    if "[Version" in version_line:
+                        shell_version = version_line.split("[Version")[1].split("]")[0].strip()
+                    else:
+                        shell_version = version_line
+            except Exception:
+                # Fall back to Windows version if cmd version detection fails
+                shell_version = platform.version()
+    
+    except (subprocess.SubprocessError, OSError):
+        # If version detection fails, continue without version
+        pass
+    
+    return shell_name, shell_version
+
+
+def get_terminal_size() -> Tuple[int, int]:
+    """
+    Get the current terminal size.
+    
+    Returns:
+        Tuple[int, int]: (width, height) in characters.
+    """
+    try:
+        columns, lines = shutil.get_terminal_size()
+        return columns, lines
+    except (AttributeError, OSError):
+        # Fallback to default size if detection fails
+        return 80, 24
+
+
+def normalize_path(path: str) -> str:
+    """
+    Normalize a path for the current platform.
+    
+    Args:
+        path (str): The path to normalize.
+        
+    Returns:
+        str: Normalized path for the current platform.
+    """
+    # Expand user directory (~/...)
+    if path.startswith("~"):
+        path = os.path.expanduser(path)
+    
+    # Expand environment variables
+    path = os.path.expandvars(path)
+    
+    # Normalize path separators and resolve relative paths
+    return os.path.normpath(path)
+
+
+def get_command_prefix() -> str:
+    """
+    Get the appropriate command prefix for the current platform.
+    
+    Returns:
+        str: Command prefix (e.g., "cmd /c" on Windows, "" on Unix).
+    """
+    if is_windows():
+        shell_info = detect_shell()
+        if shell_info and shell_info[0] in ("powershell", "pwsh"):
+            return "powershell -Command"
+        return "cmd /c"
+    return ""
+
+
+def find_executable(name: str) -> Optional[str]:
+    """
+    Find the full path to an executable.
+    
+    Args:
+        name (str): Name of the executable to find.
+        
+    Returns:
+        Optional[str]: Full path to the executable or None if not found.
+    """
+    return shutil.which(name)
+
+
+def get_shell_startup_command() -> List[str]:
+    """
+    Get the command to start the default shell.
+    
+    Returns:
+        List[str]: Command list to start the default shell.
+    """
+    if is_windows():
+        shell_info = detect_shell()
+        if shell_info and shell_info[0] in ("powershell", "pwsh"):
+            return ["powershell"]
+        return ["cmd"]
+    
+    # For Unix systems, use the SHELL environment variable or fallback to /bin/sh
+    shell = os.environ.get("SHELL", "/bin/sh")
+    return [shell]
+
+
+def supports_ansi_colors() -> bool:
+    """
+    Check if the terminal supports ANSI colors.
+    
+    Returns:
+        bool: True if ANSI colors are supported, False otherwise.
+    """
+    # Windows 10 build 14393 and later support ANSI colors
+    if is_windows():
+        # Check if running in Windows Terminal, which supports ANSI
+        if "WT_SESSION" in os.environ:
+            return True
+        
+        # Check Windows version
+        try:
+            version = sys.getwindowsversion()
+            # Windows 10 and later
+            if version.major >= 10:
+                return True
+        except AttributeError:
+            pass
+        
+        # Check ANSICON environment variable (third-party ANSI support)
+        if "ANSICON" in os.environ:
+            return True
+        
+        # Check if running in a terminal that might support colors
+        if "TERM" in os.environ and os.environ["TERM"] != "dumb":
+            return True
+        
+        return False
+    
+    # For Unix systems, check TERM environment variable
+    if "TERM" in os.environ and os.environ["TERM"] != "dumb":
+        return True
+    
+    # Check if stdout is a TTY
+    return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()

@@ -1,0 +1,39 @@
+[project]
+name = "commandrex"
+version = "0.1.0"
+description = "A natural language interface for terminal commands"
+authors = [
+    {name = "Siddhant"}
+]
+readme = "README.md"
+requires-python = "^3.10"
+dependencies = [
+    "openai>=1.65.2,<2.0.0",
+    "httpx>=0.28.1,<0.29.0",
+    "pydantic>=2.10.6,<3.0.0",
+    "keyring>=25.6.0,<26.0.0",
+    "rich>=13.9.4,<14.0.0",
+    "python-dotenv>=1.0.1,<2.0.0",
+    "typer>=0.15.2,<0.16.0"  
+]
+
+[project.scripts]
+commandrex = "commandrex.main:app"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "B", "A"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
