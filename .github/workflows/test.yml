@@ -48,7 +48,7 @@ jobs:
 
     - name: Run unit tests
       run: |
-        poetry run pytest tests/unit -v -m unit
+        poetry run pytest tests/unit -v -m unit --no-cov
 
     - name: Run integration tests
       run: |
