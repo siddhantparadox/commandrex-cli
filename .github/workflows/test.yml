@@ -39,8 +39,8 @@ jobs:
 
     - name: Install dependencies
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: |
-        poetry install --with test
+        run: |
+          poetry install --extras test
 
     - name: Run linting
       run: |
@@ -82,7 +82,7 @@ jobs:
       uses: snok/install-poetry@v1
 
     - name: Install dependencies
-      run: poetry install --with test
+      run: poetry install --extras test
 
     - name: Run security scan with bandit
       run: |
@@ -110,7 +110,7 @@ jobs:
       uses: snok/install-poetry@v1
 
     - name: Install dependencies
-      run: poetry install --with test
+      run: poetry install --extras test
 
     - name: Run type checking with mypy
       run: |
@@ -132,7 +132,7 @@ jobs:
       uses: snok/install-poetry@v1
 
     - name: Install dependencies
-      run: poetry install --with test
+      run: poetry install --extras test
 
     - name: Run full test suite with coverage
       run: |

@@ -8,7 +8,7 @@ This document provides comprehensive information about testing CommandRex, inclu
 
 ```bash
 # Using Poetry (recommended)
-poetry install --with test
+poetry install --extras test
 
 # Using pip
 pip install -e .[test]
