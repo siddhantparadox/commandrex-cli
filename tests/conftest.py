@@ -8,17 +8,15 @@ including mocks for external services, test data, and common test utilities.
 import json
 import os
 import tempfile
-from typing import Dict, Any, List
-from unittest.mock import Mock, AsyncMock, patch
+from typing import Any, Dict, List
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from faker import Faker
 
 # Import CommandRex modules for testing
-from commandrex.config import api_manager
-from commandrex.translator.openai_client import CommandTranslationResult
 from commandrex.executor import platform_utils
-
+from commandrex.translator.openai_client import CommandTranslationResult
 
 fake = Faker()
 
@@ -26,6 +24,7 @@ fake = Faker()
 # ============================================================================
 # API Key Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def valid_api_key() -> str:
@@ -42,43 +41,38 @@ def invalid_api_key() -> str:
 @pytest.fixture
 def mock_keyring():
     """Mock the keyring module for testing."""
-    with patch('keyring.get_password') as mock_get, \
-         patch('keyring.set_password') as mock_set, \
-         patch('keyring.delete_password') as mock_delete:
-        
+    with (
+        patch("keyring.get_password") as mock_get,
+        patch("keyring.set_password") as mock_set,
+        patch("keyring.delete_password") as mock_delete,
+    ):
         # Default behavior: no key stored
         mock_get.return_value = None
         mock_set.return_value = None
         mock_delete.return_value = None
-        
-        yield {
-            'get': mock_get,
-            'set': mock_set,
-            'delete': mock_delete
-        }
+
+        yield {"get": mock_get, "set": mock_set, "delete": mock_delete}
 
 
 # ============================================================================
 # OpenAI API Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_openai_response() -> Dict[str, Any]:
     """Return a mock OpenAI API response for command translation."""
     return {
         "command": "ls -la",
-        "explanation": "List all files in the current directory with detailed information",
-        "safety_assessment": {
-            "is_safe": True,
-            "concerns": [],
-            "risk_level": "low"
-        },
+        "explanation": "List all files in the current directory with detailed "
+        "information",
+        "safety_assessment": {"is_safe": True, "concerns": [], "risk_level": "low"},
         "components": [
             {"part": "ls", "description": "List directory contents"},
-            {"part": "-la", "description": "Show all files with detailed information"}
+            {"part": "-la", "description": "Show all files with detailed information"},
         ],
         "is_dangerous": False,
-        "alternatives": ["dir /a", "Get-ChildItem -Force"]
+        "alternatives": ["dir /a", "Get-ChildItem -Force"],
     }
 
 
@@ -90,15 +84,19 @@ def mock_dangerous_command_response() -> Dict[str, Any]:
         "explanation": "Recursively delete all files starting from root directory",
         "safety_assessment": {
             "is_safe": False,
-            "concerns": ["Recursive deletion", "System-wide deletion", "No confirmation"],
-            "risk_level": "high"
+            "concerns": [
+                "Recursive deletion",
+                "System-wide deletion",
+                "No confirmation",
+            ],
+            "risk_level": "high",
         },
         "components": [
             {"part": "rm", "description": "Remove files and directories"},
-            {"part": "-rf", "description": "Recursive and force deletion flags"}
+            {"part": "-rf", "description": "Recursive and force deletion flags"},
         ],
         "is_dangerous": True,
-        "alternatives": ["rm -i specific_file", "trash specific_file"]
+        "alternatives": ["rm -i specific_file", "trash specific_file"],
     }
 
 
@@ -122,18 +120,20 @@ def mock_command_translation_result(mock_openai_response) -> CommandTranslationR
 # System/Platform Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_windows_platform():
     """Mock Windows platform detection."""
-    with patch.object(platform_utils, 'is_windows', return_value=True), \
-         patch.object(platform_utils, 'get_platform_info') as mock_info:
-        
+    with (
+        patch.object(platform_utils, "is_windows", return_value=True),
+        patch.object(platform_utils, "get_platform_info") as mock_info,
+    ):
         mock_info.return_value = {
             "os_name": "Windows",
             "os_version": "10.0.19041",
             "shell_name": "cmd",
             "shell_version": "10.0.19041.1",
-            "python_version": "3.11.0"
+            "python_version": "3.11.0",
         }
         yield mock_info
 
@@ -141,15 +141,16 @@ def mock_windows_platform():
 @pytest.fixture
 def mock_unix_platform():
     """Mock Unix/Linux platform detection."""
-    with patch.object(platform_utils, 'is_windows', return_value=False), \
-         patch.object(platform_utils, 'get_platform_info') as mock_info:
-        
+    with (
+        patch.object(platform_utils, "is_windows", return_value=False),
+        patch.object(platform_utils, "get_platform_info") as mock_info,
+    ):
         mock_info.return_value = {
             "os_name": "Linux",
             "os_version": "5.15.0",
             "shell_name": "bash",
             "shell_version": "5.1.16",
-            "python_version": "3.11.0"
+            "python_version": "3.11.0",
         }
         yield mock_info
 
@@ -157,18 +158,23 @@ def mock_unix_platform():
 @pytest.fixture
 def mock_shell_detection():
     """Mock shell detection functionality."""
-    with patch.object(platform_utils, 'detect_shell') as mock_detect:
-        mock_detect.return_value = ("bash", "5.1.16", {
-            "supports_colors": True,
-            "supports_unicode": True,
-            "supports_job_control": True
-        })
+    with patch.object(platform_utils, "detect_shell") as mock_detect:
+        mock_detect.return_value = (
+            "bash",
+            "5.1.16",
+            {
+                "supports_colors": True,
+                "supports_unicode": True,
+                "supports_job_control": True,
+            },
+        )
         yield mock_detect
 
 
 # ============================================================================
 # Command Execution Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_successful_command_result():
@@ -204,6 +210,7 @@ def mock_shell_manager():
 # Test Data Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sample_commands() -> List[Dict[str, Any]]:
     """Return sample commands for testing."""
@@ -211,23 +218,23 @@ def sample_commands() -> List[Dict[str, Any]]:
         {
             "query": "list all files",
             "expected_command": "ls -la",
-            "is_dangerous": False
+            "is_dangerous": False,
         },
         {
             "query": "delete all files in current directory",
             "expected_command": "rm -rf *",
-            "is_dangerous": True
+            "is_dangerous": True,
         },
         {
             "query": "show running processes",
             "expected_command": "ps aux",
-            "is_dangerous": False
+            "is_dangerous": False,
         },
         {
             "query": "find large files",
             "expected_command": "find . -type f -size +100M",
-            "is_dangerous": False
-        }
+            "is_dangerous": False,
+        },
     ]
 
 
@@ -243,13 +250,14 @@ def sample_system_info() -> Dict[str, Any]:
         "architecture": "x86_64",
         "user": "testuser",
         "home_directory": "/home/testuser",
-        "current_directory": "/home/testuser/projects"
+        "current_directory": "/home/testuser/projects",
     }
 
 
 # ============================================================================
 # Temporary File Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def temp_dir():
@@ -261,12 +269,8 @@ def temp_dir():
 @pytest.fixture
 def temp_config_file():
     """Create a temporary configuration file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        config = {
-            "api_key": "test-key",
-            "model": "gpt-4o-mini",
-            "debug": False
-        }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        config = {"api_key": "test-key", "model": "gpt-4o-mini", "debug": False}
         json.dump(config, f)
         f.flush()
         yield f.name
@@ -277,23 +281,24 @@ def temp_config_file():
 # Environment Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def clean_environment():
     """Provide a clean environment without API keys."""
-    original_env = os.environ.get('OPENAI_API_KEY')
-    if 'OPENAI_API_KEY' in os.environ:
-        del os.environ['OPENAI_API_KEY']
-    
+    original_env = os.environ.get("OPENAI_API_KEY")
+    if "OPENAI_API_KEY" in os.environ:
+        del os.environ["OPENAI_API_KEY"]
+
     yield
-    
+
     if original_env:
-        os.environ['OPENAI_API_KEY'] = original_env
+        os.environ["OPENAI_API_KEY"] = original_env
 
 
 @pytest.fixture
 def mock_env_api_key(valid_api_key):
     """Mock environment variable with API key."""
-    with patch.dict(os.environ, {'OPENAI_API_KEY': valid_api_key}):
+    with patch.dict(os.environ, {"OPENAI_API_KEY": valid_api_key}):
         yield valid_api_key
 
 
@@ -301,10 +306,12 @@ def mock_env_api_key(valid_api_key):
 # Async Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def event_loop():
     """Create an event loop for async tests."""
     import asyncio
+
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -314,10 +321,12 @@ def event_loop():
 # Error Simulation Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_network_error():
     """Mock network error for testing error handling."""
     import httpx
+
     return httpx.NetworkError("Connection failed")
 
 
@@ -325,6 +334,7 @@ def mock_network_error():
 def mock_api_error():
     """Mock OpenAI API error for testing."""
     from openai import APIError
+
     return APIError("API request failed")
 
 
@@ -332,12 +342,14 @@ def mock_api_error():
 def mock_rate_limit_error():
     """Mock rate limit error for testing."""
     from openai import RateLimitError
+
     return RateLimitError("Rate limit exceeded")
 
 
 # ============================================================================
 # Utility Functions
 # ============================================================================
+
 
 def create_mock_response(content: str, status_code: int = 200):
     """Create a mock HTTP response."""
@@ -348,16 +360,21 @@ def create_mock_response(content: str, status_code: int = 200):
     return response
 
 
-def assert_command_components(components: List[Dict[str, str]], expected_parts: List[str]):
+def assert_command_components(
+    components: List[Dict[str, str]], expected_parts: List[str]
+):
     """Assert that command components contain expected parts."""
     component_parts = [comp["part"] for comp in components]
     for part in expected_parts:
-        assert part in component_parts, f"Expected part '{part}' not found in components"
+        assert part in component_parts, (
+            f"Expected part '{part}' not found in components"
+        )
 
 
 # ============================================================================
 # Parametrized Fixtures
 # ============================================================================
+
 
 @pytest.fixture(params=["windows", "linux", "macos"])
 def platform_type(request):

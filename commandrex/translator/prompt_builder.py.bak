@@ -14,12 +14,12 @@ from commandrex.executor import platform_utils
 class PromptBuilder:
     """
     Builder for creating effective prompts for command translation.
-    
+
     This class handles the construction of prompts that incorporate
     system information, command history, and user preferences to
     generate accurate command translations.
     """
-    
+
     def __init__(self):
         """Initialize the prompt builder."""
         # Base system prompts
@@ -51,7 +51,7 @@ class PromptBuilder:
             '  "alternatives": ["alternative1", "alternative2"]\n'
             "}\n"
         )
-        
+
         self.safety_prompt = (
             "IMPORTANT SAFETY GUIDELINES:\n"
             "- Never generate commands that could harm the user's system\n"
@@ -60,7 +60,7 @@ class PromptBuilder:
             "- Suggest safer alternatives when appropriate\n"
             "- Always explain what a command will do before the user executes it\n"
         )
-        
+
         # Platform-specific prompt templates
         self.platform_prompts = {
             "windows": (
@@ -85,7 +85,7 @@ class PromptBuilder:
                 "- Be aware of different package managers for different distributions\n"
             )
         }
-        
+
         # Shell-specific prompt templates
         self.shell_prompts = {
             "bash": "The user is using Bash shell. Use Bash syntax for commands.",
@@ -93,11 +93,11 @@ class PromptBuilder:
             "powershell": "The user is using PowerShell. Use PowerShell cmdlets and syntax.",
             "cmd": "The user is using Windows Command Prompt. Use CMD syntax for commands.",
         }
-    
+
     def _get_platform_prompt(self) -> str:
         """
         Get the appropriate platform-specific prompt.
-        
+
         Returns:
             str: Platform-specific prompt.
         """
@@ -110,11 +110,11 @@ class PromptBuilder:
         else:
             # Default to a generic prompt
             return "Use commands compatible with standard Unix-like systems."
-    
+
     def _get_shell_prompt(self) -> str:
         """
         Get the appropriate shell-specific prompt.
-        
+
         Returns:
             str: Shell-specific prompt.
         """
@@ -123,33 +123,33 @@ class PromptBuilder:
             shell_name = shell_info[0]
             if shell_name in self.shell_prompts:
                 return self.shell_prompts[shell_name]
-        
+
         # Default to a generic prompt
         return "Use standard shell syntax for commands."
-    
+
     def build_system_context(self, include_platform_info: bool = True) -> Dict[str, Any]:
         """
         Build a system context dictionary with platform information.
-        
+
         Args:
             include_platform_info (bool): Whether to include platform information.
-            
+
         Returns:
             Dict[str, Any]: System context dictionary.
         """
         context = {}
-        
+
         if include_platform_info:
             # Get platform information
             platform_info = platform_utils.get_platform_info()
             context.update(platform_info)
-            
+
             # Add terminal capabilities
             context["supports_ansi_colors"] = platform_utils.supports_ansi_colors()
             context["terminal_size"] = platform_utils.get_terminal_size()
-        
+
         return context
-    
+
     def build_translation_prompt(
         self,
         user_request: str,
@@ -158,61 +158,61 @@ class PromptBuilder:
     ) -> List[Dict[str, str]]:
         """
         Build a complete prompt for command translation.
-        
+
         Args:
             user_request (str): The user's natural language request.
             command_history (Optional[List[str]]): Previous commands for context.
             user_preferences (Optional[Dict[str, Any]]): User preferences.
-            
+
         Returns:
             List[Dict[str, str]]: List of message dictionaries for the OpenAI API.
         """
         messages = []
-        
+
         # System prompt
         system_prompt = self.base_system_prompt + "\n\n" + self.safety_prompt
-        
+
         # Add platform and shell information
         system_prompt += "\n\n" + self._get_platform_prompt()
         system_prompt += "\n" + self._get_shell_prompt()
-        
+
         messages.append({"role": "system", "content": system_prompt})
-        
+
         # Add system context
         system_context = self.build_system_context()
         messages.append({
             "role": "system",
             "content": f"System information: {json.dumps(system_context, indent=2)}"
         })
-        
+
         # Add command history for context if available
         if command_history and len(command_history) > 0:
             history_prompt = "Recent command history:\n"
             for i, cmd in enumerate(command_history[-5:]):  # Last 5 commands
                 history_prompt += f"{i+1}. {cmd}\n"
-            
+
             messages.append({"role": "system", "content": history_prompt})
-        
+
         # Add user preferences if available
         if user_preferences:
             pref_prompt = "User preferences:\n"
             for key, value in user_preferences.items():
                 pref_prompt += f"- {key}: {value}\n"
-            
+
             messages.append({"role": "system", "content": pref_prompt})
-        
+
         # Add the user's request
         messages.append({"role": "user", "content": user_request})
-        
+
         return messages
-    
+
     def build_explanation_prompt(self, command: str) -> List[Dict[str, str]]:
         """
         Build a prompt for explaining a command.
-        
+
         Args:
             command (str): The command to explain.
-            
+
         Returns:
             List[Dict[str, str]]: List of message dictionaries for the OpenAI API.
         """
@@ -230,21 +230,21 @@ class PromptBuilder:
             '  "related_commands": ["related1", "related2"]\n'
             "}\n"
         )
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Explain this command: {command}"}
         ]
-        
+
         return messages
-    
+
     def build_safety_assessment_prompt(self, command: str) -> List[Dict[str, str]]:
         """
         Build a prompt for assessing command safety.
-        
+
         Args:
             command (str): The command to assess.
-            
+
         Returns:
             List[Dict[str, str]]: List of message dictionaries for the OpenAI API.
         """
@@ -262,10 +262,10 @@ class PromptBuilder:
             '  "safer_alternatives": ["alternative1", "alternative2"]\n'
             "}\n"
         )
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Assess the safety of this command: {command}"}
         ]
-        
+
         return messages

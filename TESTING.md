@@ -136,7 +136,7 @@ Always mock external dependencies:
 def test_get_api_key_from_keyring(mock_get_password, valid_api_key):
     """Test retrieving API key from keyring."""
     mock_get_password.return_value = valid_api_key
-    
+
     result = api_manager.get_api_key()
     assert result == valid_api_key
 ```
@@ -390,7 +390,7 @@ def test_command_injection_prevention():
         "cat file | sh",
         "echo `rm file`"
     ]
-    
+
     analyzer = CommandSafetyAnalyzer()
     for cmd in dangerous_commands:
         result = analyzer.analyze_command(cmd)

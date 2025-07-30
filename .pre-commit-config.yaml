@@ -1,0 +1,34 @@
+repos:
+  # Ruff - Python linter and formatter (extremely fast)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.4
+    hooks:
+      # Run the linter with fixes
+      - id: ruff-check
+        args: [--fix, --unsafe-fixes]
+        types_or: [python, pyi]
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # Pre-commit hooks for general file cleanup
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+      # Ensure files end with a newline
+      - id: end-of-file-fixer
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      # Check YAML syntax
+      - id: check-yaml
+      # Check TOML syntax
+      - id: check-toml
+      # Check for large files
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      # Check for case conflicts
+      - id: check-case-conflict
+      # Check for executable permissions on non-executable files
+      - id: check-executables-have-shebangs

@@ -28,7 +28,7 @@ dependencies = [
     "keyring>=25.6.0,<26.0.0",
     "rich>=13.9.4,<14.0.0",
     "python-dotenv>=1.0.1,<2.0.0",
-    "typer>=0.15.2,<0.16.0"  
+    "typer>=0.15.2,<0.16.0"
 ]
 
 [project.optional-dependencies]
@@ -41,6 +41,10 @@ test = [
     "pytest-xdist>=3.6.1",
     "freezegun>=1.5.1",
     "faker>=37.5.3",
+]
+dev = [
+    "pre-commit>=3.6.0",
+    "ruff>=0.1.0",
 ]
 
 [project.urls]
@@ -55,13 +59,11 @@ commandrex = "commandrex.main:app"
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
-line-length = 88
-target-version = ["py311"]
-
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "A"]
 ignore = []
 

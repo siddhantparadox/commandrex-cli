@@ -359,6 +359,125 @@ See [`TDD_WORKFLOW.md`](TDD_WORKFLOW.md) for detailed guidelines on:
 - **Async Testing**: Full support for testing async/await code patterns
 - **CLI Testing**: Specialized testing for Typer-based CLI commands
 
+## Code Quality and Pre-commit Hooks
+
+CommandRex uses pre-commit hooks to maintain code quality and consistency. The project includes automated formatting, linting, and various file checks.
+
+### Setting up Pre-commit
+
+**Install development dependencies:**
+```bash
+# Using pip
+pip install -e ".[dev]"
+
+# Or using Poetry
+poetry install --with dev
+```
+
+**Install pre-commit hooks:**
+```bash
+pre-commit install
+```
+
+### Pre-commit Hooks
+
+The following hooks run automatically on every commit:
+
+- **Ruff v0.12.4**: Extremely fast Python linting and formatting (with unsafe fixes enabled)
+- **Trailing whitespace**: Removes trailing whitespace
+- **End of file fixer**: Ensures files end with a newline
+- **Merge conflict checker**: Detects merge conflict markers
+- **YAML syntax checker**: Validates YAML files
+- **TOML syntax checker**: Validates TOML files
+- **Large file checker**: Prevents committing large files (max 1MB)
+
+**Note**: This project uses Ruff exclusively for both linting and formatting, eliminating the need for separate Black and isort tools. Ruff provides equivalent functionality with superior performance.
+
+All Python-related hooks are optimized to run only on Python files (`.py`, `.pyi`) for better performance.
+
+### Manual Hook Execution
+
+**Run all hooks on all files:**
+```bash
+pre-commit run --all-files
+```
+
+**Run specific hooks:**
+```bash
+# Run only ruff linting
+pre-commit run ruff-check --all-files
+
+# Run only ruff formatting
+pre-commit run ruff-format --all-files
+
+# Run only trailing whitespace fixer
+pre-commit run trailing-whitespace --all-files
+
+# Run only YAML checker
+pre-commit run check-yaml --all-files
+
+# Run only TOML checker
+pre-commit run check-toml --all-files
+```
+
+**Update hook versions:**
+```bash
+pre-commit autoupdate
+```
+
+### Editor Integration with Ruff Server
+
+For the best development experience, configure your editor to use the native Ruff language server instead of the older ruff-lsp. The native server offers superior performance and is built directly into Ruff.
+
+**VS Code Setup:**
+Add this to your VS Code settings (`.vscode/settings.json` or user settings):
+```json
+{
+    "ruff.nativeServer": "on",
+    "ruff.fixAll": true,
+    "ruff.organizeImports": true,
+    "ruff.showSyntaxErrors": true
+}
+```
+
+**Neovim Setup (0.11+):**
+```lua
+vim.lsp.config('ruff', {
+  init_options = {
+    settings = {
+      fixAll = true,
+      organizeImports = true,
+      showSyntaxErrors = true
+    }
+  }
+})
+vim.lsp.enable('ruff')
+```
+
+**Neovim Setup (0.10 with nvim-lspconfig):**
+```lua
+require('lspconfig').ruff.setup({
+  init_options = {
+    settings = {
+      fixAll = true,
+      organizeImports = true,
+      showSyntaxErrors = true
+    }
+  }
+})
+```
+
+**Other Editors:**
+Most editors support the Language Server Protocol. Configure your editor to use:
+- **Command**: `ruff server`
+- **File types**: Python (`.py`, `.pyi`)
+
+**Benefits of Native Ruff Server:**
+- **Superior Performance**: Native Rust implementation is significantly faster than ruff-lsp
+- **Built-in**: No separate installation required
+- **Modern Architecture**: Lock-free data model with continuous event loop
+- **Better Integration**: More reliable LSP implementation with real-time diagnostics
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -367,16 +486,21 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/commandrex-cli.git`
 3. Install development dependencies: `pip install -e ".[dev]"`
-4. Run tests to ensure everything works: `pytest`
-5. Make your changes following TDD practices
-6. Ensure tests pass and coverage remains above 80%
-7. Submit a pull request
+4. Install pre-commit hooks: `pre-commit install`
+5. Run tests to ensure everything works: `pytest`
+6. Make your changes following TDD practices
+7. Ensure tests pass and coverage remains above 80%
+8. Submit a pull request
 
-**Testing Requirements:**
+**Code Quality Requirements:**
+- All commits must pass pre-commit hooks (ruff, trailing whitespace, etc.)
 - All new code must have corresponding tests
 - Maintain or improve test coverage
 - Follow existing test patterns and conventions
 - Include both unit and integration tests where appropriate
+
+**CI/CD Integration:**
+Pre-commit hooks should also be integrated into your CI/CD pipeline to ensure code quality standards are maintained across all contributions. Consider adding a workflow step that runs `pre-commit run --all-files` in your GitHub Actions or other CI systems.
 
 ## License
 

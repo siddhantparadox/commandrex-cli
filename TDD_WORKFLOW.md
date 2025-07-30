@@ -118,15 +118,15 @@ markers = [
 ```python
 class TestModuleName:
     """Test cases for ModuleName functionality."""
-    
+
     def setup_method(self):
         """Set up test fixtures before each test."""
         pass
-    
+
     def teardown_method(self):
         """Clean up after each test."""
         pass
-    
+
     def test_specific_functionality(self):
         """Test specific functionality with descriptive name."""
         # Arrange
@@ -144,16 +144,16 @@ def test_openai_integration(self, mock_openai):
     """Test OpenAI API integration with proper mocking."""
     mock_client = Mock()
     mock_openai.return_value = mock_client
-    
+
     # Configure mock response
     mock_response = Mock()
     mock_response.choices[0].message.content = '{"command": "ls -la"}'
     mock_client.chat.completions.create.return_value = mock_response
-    
+
     # Test the functionality
     client = OpenAIClient("test-key")
     result = client.translate_to_command("list files")
-    
+
     assert result.command == "ls -la"
 ```
 
@@ -167,10 +167,10 @@ def test_shell_execution(self, mock_run):
         stdout="file1.txt\nfile2.txt",
         stderr=""
     )
-    
+
     manager = ShellManager()
     result = manager.execute_command("ls")
-    
+
     assert result.success is True
     assert "file1.txt" in result.stdout
 ```
@@ -299,7 +299,7 @@ def test_new_feature_edge_cases():
 def test_complex_functionality(self):
     """
     Test complex functionality with multiple scenarios.
-    
+
     This test verifies that:
     1. Input validation works correctly
     2. Processing handles edge cases
