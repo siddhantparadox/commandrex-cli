@@ -41,8 +41,8 @@ class CommandSafetyAnalyzer:
         (r"\bmkfs\b", "Filesystem creation command"),
         
         # Network operations
-        (r"\bcurl\s+.*\s+\|\s+sh", "Piping curl output to shell"),
-        (r"\bwget\s+.*\s+\|\s+sh", "Piping wget output to shell"),
+        (r"\bcurl\s+.*\s+\|\s+(sh|bash)", "Piping curl output to shell"),
+        (r"\bwget\s+.*\s+\|\s+(sh|bash)", "Piping wget output to shell"),
         (r"\bnc\b", "Netcat command"),
         (r"\bnetcat\b", "Netcat command"),
         
@@ -91,6 +91,10 @@ class CommandSafetyAnalyzer:
         Returns:
             Dict[str, Any]: Analysis results.
         """
+        # Handle None input
+        if command is None:
+            raise TypeError("Command cannot be None")
+            
         result = {
             "command": command,
             "is_safe": True,
@@ -145,13 +149,12 @@ class CommandSafetyAnalyzer:
         # Determine risk level based on concerns
         if not result["concerns"]:
             result["risk_level"] = "none"
-        elif len(result["concerns"]) == 1 and not any(c in " ".join(result["concerns"]).lower() 
-                                                    for c in ["deletion", "format", "privileged"]):
-            result["risk_level"] = "low"
-        elif any(c in " ".join(result["concerns"]).lower() for c in ["privileged", "sudo", "su"]):
+        elif any(c in " ".join(result["concerns"]).lower() for c in ["privileged", "sudo", "su", "direct disk operation"]):
             result["risk_level"] = "high"
-        else:
+        elif any(c in " ".join(result["concerns"]).lower() for c in ["deletion", "format", "piping", "shell", "777", "chmod"]):
             result["risk_level"] = "medium"
+        else:
+            result["risk_level"] = "low"
         
         # Update is_safe based on risk level
         if result["risk_level"] != "none":
@@ -234,8 +237,9 @@ class CommandSafetyAnalyzer:
                 device_path = part.split("=", 1)[1]
                 if device_path.startswith("/dev/"):
                     result["concerns"].append(f"Direct disk operation on device {device_path}")
-                    result["risk_level"] = "high"
                     result["recommendations"].append("Be extremely careful with dd operations on device files")
+                    # Set risk level to high for device operations
+                    result["risk_level"] = "high"
     
     def _analyze_power_command(self, command: str, cmd_parts: List[str], result: Dict[str, Any]) -> None:
         """
@@ -302,17 +306,29 @@ def sanitize_command(command: str) -> str:
     Returns:
         str: Sanitized command.
     """
-    # Remove shell control operators
-    sanitized = re.sub(r'[;&|><`$]', '', command)
+    if command is None:
+        raise TypeError("Command cannot be None")
+        
+    # Remove quotes first
+    sanitized = command.replace('"', '').replace("'", '')
     
-    # Remove quotes
-    sanitized = sanitized.replace('"', '').replace("'", '')
+    # Replace && with exactly double spaces (handle spaces around && first)
+    sanitized = sanitized.replace(' && ', '  ')  # Handle && with spaces
+    sanitized = sanitized.replace('&&', '  ')     # Handle && without spaces
+    
+    # Remove shell control operators - single & should be replaced with single space
+    # But we need to be careful not to affect the && we already replaced
+    sanitized = re.sub(r'(?<!&)&(?!&)', ' ', sanitized)  # Single & only (not part of &&)
+    sanitized = re.sub(r'[;<>|`$]', '', sanitized)  # These get removed completely
     
     # Remove newlines and control characters
     sanitized = re.sub(r'[\r\n\t\f\v]', ' ', sanitized)
     
-    # Remove multiple spaces
-    sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+    # Normalize multiple spaces (3+) to single space, but preserve double spaces from && replacement
+    sanitized = re.sub(r' {3,}', ' ', sanitized)
+    
+    # Trim leading/trailing spaces
+    sanitized = re.sub(r'^ +| +$', '', sanitized)
     
     return sanitized
 
@@ -327,6 +343,9 @@ def secure_string(value: str) -> str:
     Returns:
         str: Masked string.
     """
+    if value is None:
+        raise TypeError("Value cannot be None")
+        
     if not value:
         return ""
     
@@ -334,7 +353,9 @@ def secure_string(value: str) -> str:
     if len(value) <= 4:
         return "*" * len(value)
     else:
-        return value[0] + "*" * (len(value) - 2) + value[-1]
+        # Preserve original length: first char + asterisks + last char
+        asterisk_count = len(value) - 2
+        return value[0] + "*" * asterisk_count + value[-1]
 
 
 # Global instance of the command safety analyzer

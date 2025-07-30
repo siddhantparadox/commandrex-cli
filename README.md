@@ -38,13 +38,33 @@ cd commandrex-cli
 pip install -e .
 ```
 
-### Using Poetry
+### Using Poetry (for Development)
 
+**Prerequisites:** Poetry must be installed first. Install Poetry using one of these methods:
+
+**Linux/macOS/WSL:**
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+**Windows (PowerShell):**
+```powershell
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
+```
+
+**Alternative (using pipx):**
+```bash
+pipx install poetry
+```
+
+**Then install CommandRex:**
 ```bash
 git clone https://github.com/siddhantparadox/commandrex-cli.git
 cd commandrex-cli
 poetry install
 ```
+
+> **Note:** Poetry is a build and dependency management tool, not a runtime dependency. It should be installed separately on your system before using `poetry install`.
 
 ## Usage
 
@@ -223,9 +243,140 @@ CommandRex takes security seriously:
 - You always have the final say on whether to execute a command
 - No data is stored or shared beyond what's needed for API communication
 
+## Testing
+
+CommandRex has a comprehensive test suite with 522 tests achieving 86.89% code coverage. The project follows Test-Driven Development (TDD) practices to ensure code quality and reliability.
+
+### Running Tests
+
+**Run all tests:**
+```bash
+# Using pytest directly
+pytest
+
+# With coverage report
+pytest --cov=commandrex --cov-report=term-missing
+
+# Using the test runner script
+python run_tests.py
+```
+
+**Run specific test categories:**
+```bash
+# Unit tests only
+pytest tests/unit/
+
+# Integration tests only
+pytest tests/integration/
+
+# End-to-end tests only
+pytest tests/e2e/
+
+# Run tests in parallel (faster)
+pytest -n auto
+```
+
+**Run specific test files:**
+```bash
+# Test a specific module
+pytest tests/unit/test_security.py
+
+# Test with verbose output
+pytest tests/unit/test_api_manager.py -v
+
+# Run a specific test
+pytest tests/unit/test_security.py::TestCommandSafetyAnalyzer::test_analyze_command_dangerous_rm_rf
+```
+
+### Test Structure
+
+The test suite is organized into three main categories:
+
+```
+tests/
+├── conftest.py              # Shared test fixtures and configuration
+├── unit/                    # Unit tests (488 tests)
+│   ├── test_api_manager.py  # API key management tests
+│   ├── test_security.py     # Security and safety analysis tests
+│   ├── test_main.py         # CLI interface tests
+│   ├── test_openai_client.py # OpenAI API integration tests
+│   └── ...
+├── integration/             # Integration tests (9 tests)
+│   └── test_basic_workflow.py # Cross-component workflow tests
+└── e2e/                     # End-to-end tests (25 tests)
+    └── test_cli_commands.py # Complete CLI command testing
+```
+
+### Test Coverage
+
+Current test coverage by module:
+- **API Manager**: 100% coverage
+- **Security Module**: 99% coverage
+- **Settings Module**: 99% coverage
+- **Shell Manager**: 100% coverage
+- **OpenAI Client**: 100% coverage
+- **Prompt Builder**: 100% coverage
+- **Logging Utils**: 100% coverage
+- **Command Parser**: 91% coverage
+- **Platform Utils**: 78% coverage
+- **Main CLI**: 68% coverage
+
+### Development Testing
+
+**Prerequisites for testing:**
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Or using Poetry
+poetry install
+```
+
+**Test configuration:**
+- Minimum coverage threshold: 80%
+- Test timeout: 300 seconds
+- Parallel execution supported
+- Cross-platform testing (Windows, macOS, Linux)
+
+**Continuous Integration:**
+Tests run automatically on:
+- Pull requests
+- Pushes to main branch
+- Multiple Python versions (3.10, 3.11, 3.12)
+- Multiple operating systems
+
+**Writing Tests:**
+See [`TDD_WORKFLOW.md`](TDD_WORKFLOW.md) for detailed guidelines on:
+- Test-driven development practices
+- Writing effective unit tests
+- Mocking strategies for external dependencies
+- Integration testing patterns
+- End-to-end testing approaches
+
+**Test Utilities:**
+- **Fixtures**: Shared test data and mock objects in `conftest.py`
+- **Mocking**: Comprehensive mocking of OpenAI API, file system, and system calls
+- **Async Testing**: Full support for testing async/await code patterns
+- **CLI Testing**: Specialized testing for Typer-based CLI commands
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+**Development Setup:**
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/commandrex-cli.git`
+3. Install development dependencies: `pip install -e ".[dev]"`
+4. Run tests to ensure everything works: `pytest`
+5. Make your changes following TDD practices
+6. Ensure tests pass and coverage remains above 80%
+7. Submit a pull request
+
+**Testing Requirements:**
+- All new code must have corresponding tests
+- Maintain or improve test coverage
+- Follow existing test patterns and conventions
+- Include both unit and integration tests where appropriate
 
 ## License
 

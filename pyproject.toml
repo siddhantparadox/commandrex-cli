@@ -31,6 +31,18 @@ dependencies = [
     "typer>=0.15.2,<0.16.0"  
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.6.1",
+    "freezegun>=1.5.1",
+    "faker>=37.5.3",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/siddhantparadox/commandrex-cli"
 "Bug Tracker" = "https://github.com/siddhantparadox/commandrex-cli/issues"
@@ -56,3 +68,24 @@ ignore = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--cov=commandrex",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+    "network: Tests that require network access",
+]
+asyncio_mode = "auto"
+timeout = 300

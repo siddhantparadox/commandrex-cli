@@ -93,5 +93,9 @@ def is_api_key_valid(api_key: str) -> bool:
     if not api_key or not isinstance(api_key, str):
         return False
     
-    # OpenAI API keys typically start with "sk-" and are 51 characters long
-    return api_key.startswith("sk-") and len(api_key) >= 40
+    # Check for whitespace (leading/trailing spaces are invalid)
+    if api_key != api_key.strip():
+        return False
+    
+    # OpenAI API keys must start with "sk-" (case sensitive) and be at least 43 characters long total
+    return api_key.startswith("sk-") and len(api_key) >= 43

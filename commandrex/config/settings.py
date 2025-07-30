@@ -5,6 +5,7 @@ This module provides functions to manage application settings,
 including loading, saving, and accessing configuration values.
 """
 
+import copy
 import json
 import os
 import platform
@@ -190,11 +191,11 @@ class Settings:
         Returns:
             Dict[str, Dict[str, Any]]: All settings.
         """
-        return self.settings.copy()
+        return copy.deepcopy(self.settings)
     
     def reset_to_defaults(self) -> None:
         """Reset all settings to default values."""
-        self.settings = self.DEFAULT_SETTINGS.copy()
+        self.settings = copy.deepcopy(self.DEFAULT_SETTINGS)
     
     def reset_section(self, section: str) -> bool:
         """
@@ -207,7 +208,7 @@ class Settings:
             bool: True if successful, False otherwise.
         """
         if section in self.DEFAULT_SETTINGS:
-            self.settings[section] = self.DEFAULT_SETTINGS[section].copy()
+            self.settings[section] = copy.deepcopy(self.DEFAULT_SETTINGS[section])
             return True
         return False
     

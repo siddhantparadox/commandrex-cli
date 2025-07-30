@@ -35,8 +35,8 @@ class CommandParser:
         r"\bmkfs\b",  # mkfs command
         
         # Network operations
-        r"\bcurl\s+.*\s+\|\s+sh",  # curl piped to shell
-        r"\bwget\s+.*\s+\|\s+sh",  # wget piped to shell
+        r"\bcurl\s+.*\s+\|\s+(sh|bash)",  # curl piped to shell
+        r"\bwget\s+.*\s+\|\s+(sh|bash)",  # wget piped to shell
         r"\bnc\b",  # netcat
         r"\bnetcat\b",  # netcat
         
@@ -223,6 +223,10 @@ class CommandParser:
         Returns:
             Dict[str, Any]: Validation results.
         """
+        # Handle None input
+        if command is None:
+            raise TypeError("Command cannot be None")
+            
         result = {
             "command": command,
             "is_valid": True,
@@ -278,6 +282,11 @@ class CommandParser:
                 result["suggested_modifications"].append(
                     command.replace("-f", "-i")
                 )
+            elif parsed_command == "rm" and "-r" in command and "-f" not in command:
+                # For rm -rf, suggest safer alternatives
+                result["suggested_modifications"].append(
+                    command.replace("-r", "-ri")
+                )
             
             # For del commands, suggest adding /p for confirmation
             if parsed_command == "del" and "/q" in command:
@@ -290,6 +299,15 @@ class CommandParser:
                 result["suggested_modifications"].append(
                     command.replace("777", "755")
                 )
+            
+            # For general dangerous commands without specific suggestions, provide generic advice
+            if not result["suggested_modifications"]:
+                if "rm -rf" in command:
+                    result["suggested_modifications"].append("Consider using 'rm -ri' for interactive confirmation")
+                elif "sudo" in command:
+                    result["suggested_modifications"].append("Consider running without sudo if possible")
+                elif "chmod 777" in command:
+                    result["suggested_modifications"].append("Use more restrictive permissions like 755 or 644")
         
         return result
     

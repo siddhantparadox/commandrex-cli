@@ -296,8 +296,7 @@ def translate(
     with console.status("[bold green]Thinking...[/]", spinner="dots"):
         try:
             # Run in event loop
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(
+            result = asyncio.run(
                 client.translate_to_command(query_text, system_context)
             )
         except Exception as e:
@@ -343,6 +342,13 @@ def translate(
         for component in components:
             console.print(f"  • [bold]{component['part']}[/]: {component['description']}")
     
+    # Show alternatives if available
+    alternatives = getattr(result, 'alternatives', [])
+    if alternatives:
+        console.print("\n[bold]Alternative Commands:[/]")
+        for alt in alternatives:
+            console.print(f"  • {alt}")
+    
     # Execute the command if requested
     if execute:
         if is_dangerous:
@@ -369,8 +375,7 @@ def translate(
                 console.print(f"[red]{line}[/]", end="")
             
             # Run in event loop
-            loop = asyncio.get_event_loop()
-            result, _ = loop.run_until_complete(
+            result, _ = asyncio.run(
                 shell_mgr.execute_command_safely(
                     command,
                     stdout_callback=stdout_callback,
@@ -432,8 +437,7 @@ def explain(
     with console.status("[bold green]Analyzing command...[/]", spinner="dots"):
         try:
             # Run in event loop
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(
+            result = asyncio.run(
                 client.explain_command(command_text)
             )
         except Exception as e:
@@ -493,6 +497,12 @@ def explain(
 
 @app.command()
 def run(
+    query: List[str] = typer.Argument(
+        None, help="Natural language query to translate and potentially execute."
+    ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip confirmation prompts and execute commands automatically."
+    ),
     debug: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug mode."
     ),
@@ -525,6 +535,26 @@ def run(
     shell_info = platform_utils.detect_shell()
     running_in_git_bash = shell_info and shell_info[0] == "bash" and platform_utils.is_windows()
     
+    # Handle direct query arguments
+    if query:
+        query_text = " ".join(query)
+        console.print(f"[bold]Translating:[/] {query_text}")
+        
+        # Debug shell detection
+        if debug:
+            shell_info = platform_utils.detect_shell()
+            console.print(f"\n[bold]Debug - Shell Detection:[/]")
+            if shell_info:
+                console.print(f"  • Detected shell: {shell_info[0]}")
+                console.print(f"  • Shell version: {shell_info[1]}")
+                console.print(f"  • Running on Windows: {platform_utils.is_windows()}")
+                console.print(f"  • Git Bash detection: {platform_utils.is_windows() and shell_info[0] == 'bash'}")
+            else:
+                console.print("  • No shell detected")
+        
+        process_translation(query_text, api_key, model, yes_flag=yes)
+        return
+    
     # If a direct translation was provided, process it without interactive mode
     if translate_arg:
         console.print(f"[bold]Translating:[/] {translate_arg}")
@@ -541,7 +571,7 @@ def run(
             else:
                 console.print("  • No shell detected")
         
-        process_translation(translate_arg, api_key, model)
+        process_translation(translate_arg, api_key, model, yes_flag=yes)
         return
     
     # Set debug mode in settings
@@ -617,7 +647,7 @@ def run(
                     continue
                 
                 # Process the translation
-                process_translation(user_input, api_key, model)
+                process_translation(user_input, api_key, model, yes_flag=False)
             except KeyboardInterrupt:
                 # This will be handled by our signal handler
                 pass
@@ -631,7 +661,7 @@ def run(
         sys.exit(1)
 
 
-def process_translation(query: str, api_key: Optional[str], model: str) -> None:
+def process_translation(query: str, api_key: Optional[str], model: str, yes_flag: bool = False) -> None:
     """
     Process a natural language query and translate it to a command.
     
@@ -639,6 +669,7 @@ def process_translation(query: str, api_key: Optional[str], model: str) -> None:
         query (str): The natural language query
         api_key (Optional[str]): The OpenAI API key (or None to use stored key)
         model (str): The model to use
+        yes_flag (bool): Whether to skip confirmation prompts
     """
     # Process the input
     console.print("[bold green]Translating...[/]")
@@ -655,8 +686,7 @@ def process_translation(query: str, api_key: Optional[str], model: str) -> None:
     # Translate the command
     try:
         # Run in event loop
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(
+        result = asyncio.run(
             client.translate_to_command(query, system_context)
         )
         
@@ -699,8 +729,19 @@ def process_translation(query: str, api_key: Optional[str], model: str) -> None:
             for component in components:
                 console.print(f"  • [bold]{component['part']}[/]: {component['description']}")
         
-        # Ask if the user wants to execute the command
-        execute = typer.confirm("Execute this command?", default=False)
+        # Show alternatives if available
+        alternatives = getattr(result, 'alternatives', [])
+        if alternatives:
+            console.print("\n[bold]Alternative Commands:[/]")
+            for alt in alternatives:
+                console.print(f"  • {alt}")
+        
+        # Ask if the user wants to execute the command (unless --yes flag is used)
+        if yes_flag:
+            execute = True
+        else:
+            execute = typer.confirm("Execute this command?", default=False)
+        
         if execute:
             console.print("\n[bold]Executing command:[/]")
             
@@ -717,8 +758,7 @@ def process_translation(query: str, api_key: Optional[str], model: str) -> None:
                     console.print(f"[red]{line}[/]", end="")
                 
                 # Run in event loop
-                loop = asyncio.get_event_loop()
-                result, _ = loop.run_until_complete(
+                result, _ = asyncio.run(
                     shell_mgr.execute_command_safely(
                         command,
                         stdout_callback=stdout_callback,

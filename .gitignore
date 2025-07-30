@@ -37,6 +37,12 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+.coverage.*
+coverage/
+test-results/
+junit.xml
+bandit-report.json
+.bandit
 
 # Cline-specific files
 key.txt
@@ -82,6 +88,14 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.black_cache/
 
 # Poetry lock file (optional, uncomment if you want to ignore it)
 # poetry.lock
+
+# Testing related files
+testing.txt
+test_output/
+test_logs/
+*.test
+.test_*
