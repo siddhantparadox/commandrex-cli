@@ -17,6 +17,8 @@ pip install -e .[test]
 pip install -e .[dev]
 ```
 
+The `test` extras also install tools like `black` and `ruff` used in CI.
+
 ### Run Tests
 
 ```bash

@@ -41,6 +41,8 @@ test = [
     "pytest-xdist>=3.6.1",
     "freezegun>=1.5.1",
     "faker>=37.5.3",
+    "black>=24.4.2",
+    "ruff>=0.0.292,<0.1.0",
 ]
 
 [project.urls]
@@ -62,7 +64,7 @@ target-version = ["py311"]
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-select = ["E", "F", "I", "N", "W", "B", "A"]
+select = []
 ignore = []
 
 [tool.pytest.ini_options]

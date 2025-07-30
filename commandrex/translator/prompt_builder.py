@@ -14,17 +14,17 @@ from commandrex.executor import platform_utils
 class PromptBuilder:
     """
     Builder for creating effective prompts for command translation.
-    
+
     This class handles the construction of prompts that incorporate
     system information, command history, and user preferences to
     generate accurate command translations.
     """
-    
+
     def __init__(self):
         """Initialize the prompt builder."""
         # Base system prompts
         self.base_system_prompt = self.build_enhanced_system_prompt()
-        
+
         self.safety_prompt = (
             "IMPORTANT SAFETY GUIDELINES:\n"
             "- Never generate commands that could harm the user's system\n"
@@ -33,7 +33,7 @@ class PromptBuilder:
             "- Suggest safer alternatives when appropriate\n"
             "- Always explain what a command will do before the user executes it\n"
         )
-        
+
         # Platform-specific prompt templates
         self.platform_prompts = {
             "windows": (
@@ -56,9 +56,9 @@ class PromptBuilder:
                 "- Consider the common Linux tools and utilities\n"
                 "- Use correct path separators (forward slashes)\n"
                 "- Be aware of different package managers for different distributions\n"
-            )
+            ),
         }
-        
+
         # Shell-specific prompt templates
         self.shell_prompts = {
             "bash": "The user is using Bash shell. Use Bash syntax for commands.",
@@ -66,7 +66,7 @@ class PromptBuilder:
             "powershell": "The user is using PowerShell. Use PowerShell cmdlets and syntax.",
             "cmd": "The user is using Windows Command Prompt. Use CMD syntax for commands.",
         }
-        
+
         # Platform-specific shell overrides
         self.platform_shell_overrides = {
             "windows": {
@@ -79,11 +79,11 @@ class PromptBuilder:
                 )
             }
         }
-    
+
     def _get_platform_prompt(self) -> str:
         """
         Get the appropriate platform-specific prompt.
-        
+
         Returns:
             str: Platform-specific prompt.
         """
@@ -97,7 +97,7 @@ class PromptBuilder:
                 "- Use standard Unix commands like ls, grep, find, etc.\n"
                 "- Do NOT use PowerShell cmdlets or CMD commands\n"
             )
-        
+
         # Standard platform detection
         if platform_utils.is_windows():
             return self.platform_prompts["windows"]
@@ -108,11 +108,11 @@ class PromptBuilder:
         else:
             # Default to a generic prompt
             return "Use commands compatible with standard Unix-like systems."
-    
+
     def _get_shell_prompt(self) -> str:
         """
         Get the appropriate shell-specific prompt with detailed capabilities.
-        
+
         Returns:
             str: Shell-specific prompt with capabilities.
         """
@@ -120,25 +120,32 @@ class PromptBuilder:
         if not shell_info:
             # Default to a generic prompt if shell detection fails
             return "Use standard shell syntax for commands."
-            
+
         shell_name, shell_version, capabilities = shell_info
-        
+
         # Check for platform-specific shell overrides first
-        current_platform = "windows" if platform_utils.is_windows() else "macos" if platform_utils.is_macos() else "linux"
-        if current_platform in self.platform_shell_overrides and shell_name in self.platform_shell_overrides[current_platform]:
+        current_platform = (
+            "windows"
+            if platform_utils.is_windows()
+            else "macos" if platform_utils.is_macos() else "linux"
+        )
+        if (
+            current_platform in self.platform_shell_overrides
+            and shell_name in self.platform_shell_overrides[current_platform]
+        ):
             prompt = self.platform_shell_overrides[current_platform][shell_name]
         # Fall back to standard shell prompts
         elif shell_name in self.shell_prompts:
             prompt = self.shell_prompts[shell_name]
         else:
             prompt = "Use standard shell syntax for commands."
-        
+
         # Add shell version information
         prompt += f"\nDetected shell version: {shell_version}\n"
-        
+
         # Add shell capabilities information
         prompt += "\nShell capabilities:\n"
-        
+
         # Add key capabilities with explanations
         capability_explanations = {
             "supports_redirection": "Supports input/output redirection",
@@ -150,24 +157,28 @@ class PromptBuilder:
             "supports_unicode": "Supports Unicode characters",
             "multiline_commands": "Supports multi-line commands",
             "command_history": "Maintains command history",
-            "command_editing": "Supports command-line editing"
+            "command_editing": "Supports command-line editing",
         }
-        
+
         # Add shell-specific capability explanations
         if shell_name in ["powershell", "pwsh"]:
-            capability_explanations.update({
-                "object_pipeline": "Supports object-based pipeline",
-                "type_system": "Has strong type system"
-            })
-        
+            capability_explanations.update(
+                {
+                    "object_pipeline": "Supports object-based pipeline",
+                    "type_system": "Has strong type system",
+                }
+            )
+
         # Add capabilities to the prompt
         for capability, explanation in capability_explanations.items():
             if capability in capabilities:
-                prompt += f"- {explanation}: {'Yes' if capabilities[capability] else 'No'}\n"
-        
+                prompt += (
+                    f"- {explanation}: {'Yes' if capabilities[capability] else 'No'}\n"
+                )
+
         # Add shell-specific command guidelines
         prompt += "\nCommand guidelines for this shell:\n"
-        
+
         if shell_name in ["powershell", "pwsh"]:
             prompt += """
 - Use PowerShell cmdlets (verb-noun format like Get-ChildItem instead of ls)
@@ -222,30 +233,32 @@ class PromptBuilder:
 - Remember that fish uses different scripting syntax than bash/zsh
 - Use fish's built-in functions for common operations
 """
-        
+
         return prompt
-    
-    def build_system_context(self, include_platform_info: bool = True) -> Dict[str, Any]:
+
+    def build_system_context(
+        self, include_platform_info: bool = True
+    ) -> Dict[str, Any]:
         """
         Build a system context dictionary with enhanced platform and shell information.
-        
+
         Args:
             include_platform_info (bool): Whether to include platform information.
-            
+
         Returns:
             Dict[str, Any]: System context dictionary.
         """
         context = {}
-        
+
         if include_platform_info:
             # Get platform information
             platform_info = platform_utils.get_platform_info()
             context.update(platform_info)
-            
+
             # Add terminal capabilities
             context["supports_ansi_colors"] = platform_utils.supports_ansi_colors()
             context["terminal_size"] = platform_utils.get_terminal_size()
-            
+
             # Add enhanced shell information
             shell_info = platform_utils.detect_shell()
             if shell_info:
@@ -253,20 +266,20 @@ class PromptBuilder:
                 context["shell_name"] = shell_name
                 context["shell_version"] = shell_version
                 context["shell_capabilities"] = capabilities
-        
+
         return context
-    
+
     def build_enhanced_system_prompt(self):
         """
         Build an enhanced system prompt with detailed examples and guidelines.
-        
+
         Returns:
             str: Enhanced system prompt text
         """
         return """
         You are CommandRex, an expert in translating natural language to terminal commands.
         Your task is to convert user requests into the most appropriate command for their system.
-        
+
         For each request, you should:
         1. Determine the user's intent
         2. Select the most appropriate command(s) for their system
@@ -275,21 +288,21 @@ class PromptBuilder:
         5. Assess the safety of the command
         6. Break down the command components
         7. Suggest alternatives if appropriate
-        
+
         IMPORTANT GUIDELINES:
         1. Prioritize the most idiomatic command for the user's platform
         2. Include necessary flags but prefer the most common/standard options
         3. Protect users from destructive operations with warnings
         4. Explain command components thoroughly
         5. Provide alternatives when appropriate
-        
+
         COMMAND ACCURACY GUIDELINES:
         - For file operations, check if paths need quotes
         - For filters (grep/find), ensure proper regex escaping
         - For piped commands, ensure compatibility between components
         - For Windows PowerShell, use proper cmdlet syntax
         - Use platform-specific path separators consistently
-        
+
         RESPONSE FORMAT REQUIREMENTS:
         You MUST respond in valid JSON format with this EXACT structure:
         {
@@ -307,11 +320,11 @@ class PromptBuilder:
           "alternatives": ["alternative command 1", "alternative command 2"]
         }
         """
-    
+
     def _get_platform_examples(self):
         """
         Get platform-specific examples for the current platform.
-        
+
         Returns:
             str: Platform-specific examples
         """
@@ -319,7 +332,7 @@ class PromptBuilder:
         shell_info = platform_utils.detect_shell()
         if platform_utils.is_windows() and shell_info and shell_info[0] == "bash":
             return self._get_git_bash_examples()
-        
+
         # Standard platform detection
         if platform_utils.is_windows():
             shell_info = platform_utils.detect_shell()
@@ -338,25 +351,25 @@ class PromptBuilder:
         """Get Git Bash-specific command examples."""
         return """
         EXAMPLE TRANSLATIONS FOR GIT BASH ON WINDOWS:
-        
+
         [User: "list files in current directory"]
         {"command": "ls -la"}
-        
+
         [User: "find large files in my downloads folder"]
         {"command": "find ~/Downloads -type f -size +10M -exec ls -lh {} \\; | sort -rh"}
-        
+
         [User: "show processes using the most memory"]
         {"command": "ps aux --sort=-%mem | head -n 10"}
-        
+
         [User: "create a backup of my documents folder"]
         {"command": "tar -czf ~/Documents_Backup_$(date +%Y%m%d).tar.gz ~/Documents"}
-        
+
         [User: "find all text files containing the word 'important'"]
         {"command": "grep -r --include=\"*.txt\" \"important\" ."}
-        
+
         [User: "show me disk space usage"]
         {"command": "df -h"}
-        
+
         [User: "check system load average"]
         {"command": "uptime"}
         """
@@ -365,19 +378,19 @@ class PromptBuilder:
         """Get PowerShell-specific command examples."""
         return """
         EXAMPLE TRANSLATIONS FOR POWERSHELL:
-        
+
         [User: "find large files in my downloads folder"]
         {"command": "Get-ChildItem -Path \"$HOME\\Downloads\" -Recurse | Where-Object {$_.Length -gt 10MB} | Sort-Object -Property Length -Descending"}
-        
+
         [User: "show processes using the most memory"]
         {"command": "Get-Process | Sort-Object -Property WorkingSet -Descending | Select-Object -First 10 Name, Id, WorkingSet"}
-        
+
         [User: "create a backup of my documents folder"]
         {"command": "Compress-Archive -Path \"$HOME\\Documents\" -DestinationPath \"$HOME\\Documents_Backup_$(Get-Date -Format 'yyyyMMdd').zip\""}
-        
+
         [User: "find all text files containing the word 'important'"]
         {"command": "Get-ChildItem -Path . -Filter *.txt -Recurse | Select-String -Pattern \"important\" | Group-Object Path | Select-Object Name"}
-        
+
         [User: "show me disk space usage"]
         {"command": "Get-PSDrive -PSProvider FileSystem | Format-Table -Property Name, Used, Free"}
         """
@@ -386,19 +399,19 @@ class PromptBuilder:
         """Get Windows CMD-specific command examples."""
         return """
         EXAMPLE TRANSLATIONS FOR WINDOWS CMD:
-        
+
         [User: "find large files in my downloads folder"]
         {"command": "dir \"%USERPROFILE%\\Downloads\" /s /b /a-d | findstr /R \".\" > temp.txt && for /F \"tokens=*\" %i in ('type temp.txt') do @echo %~zi %i | findstr /R \"[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]\" && del temp.txt"}
-        
+
         [User: "show processes using the most memory"]
         {"command": "tasklist /v /fi \"memusage gt 10000\" /sort:memusage"}
-        
+
         [User: "create a backup of my documents folder"]
         {"command": "xcopy \"%USERPROFILE%\\Documents\" \"%USERPROFILE%\\Documents_Backup_%date:~10,4%%date:~4,2%%date:~7,2%\" /E /I /H"}
-        
+
         [User: "find all text files containing the word 'important'"]
         {"command": "findstr /s /i /m \"important\" *.txt"}
-        
+
         [User: "show me disk space usage"]
         {"command": "wmic logicaldisk get deviceid, size, freespace"}
         """
@@ -407,19 +420,19 @@ class PromptBuilder:
         """Get macOS-specific command examples."""
         return """
         EXAMPLE TRANSLATIONS FOR MACOS:
-        
+
         [User: "find large files in my downloads folder"]
         {"command": "find ~/Downloads -type f -size +10M -exec ls -lh {} \\; | sort -rh"}
-        
+
         [User: "show processes using the most memory"]
         {"command": "ps aux --sort=-%mem | head -n 10"}
-        
+
         [User: "create a backup of my documents folder"]
         {"command": "tar -czf ~/Documents_Backup_$(date +%Y%m%d).tar.gz ~/Documents"}
-        
+
         [User: "find all text files containing the word 'important'"]
         {"command": "grep -r --include=\"*.txt\" \"important\" ."}
-        
+
         [User: "show me disk space usage"]
         {"command": "df -h"}
         """
@@ -428,22 +441,22 @@ class PromptBuilder:
         """Get Linux-specific command examples."""
         return """
         EXAMPLE TRANSLATIONS FOR LINUX:
-        
+
         [User: "find large files in my downloads folder"]
         {"command": "find ~/Downloads -type f -size +10M -exec ls -lh {} \\; | sort -rh"}
-        
+
         [User: "show processes using the most memory"]
         {"command": "ps aux --sort=-%mem | head -n 10"}
-        
+
         [User: "create a backup of my documents folder"]
         {"command": "tar -czf ~/Documents_Backup_$(date +%Y%m%d).tar.gz ~/Documents"}
-        
+
         [User: "find all text files containing the word 'important'"]
         {"command": "grep -r --include=\"*.txt\" \"important\" ."}
-        
+
         [User: "show me disk space usage"]
         {"command": "df -h"}
-        
+
         [User: "check system load average"]
         {"command": "uptime"}
         """
@@ -452,24 +465,24 @@ class PromptBuilder:
         """Get generic command examples for unknown platforms."""
         return """
         EXAMPLE TRANSLATIONS:
-        
+
         [User: "find large files in my downloads folder"]
         {"command": "find ~/Downloads -type f -size +10M -exec ls -lh {} \\; | sort -rh"}
-        
+
         [User: "show processes using the most memory"]
         {"command": "ps aux --sort=-%mem | head -n 10"}
-        
+
         [User: "create a backup of my documents folder"]
         {"command": "tar -czf ~/Documents_Backup_$(date +%Y%m%d).tar.gz ~/Documents"}
         """
-        
+
     def _get_shell_specific_examples(self, shell_name: str) -> str:
         """
         Get command examples specific to the detected shell.
-        
+
         Args:
             shell_name (str): Name of the shell
-            
+
         Returns:
             str: Shell-specific command examples
         """
@@ -478,37 +491,37 @@ class PromptBuilder:
             return """
             [Task: "List files with details"]
             {"command": "ls -la"}
-            
+
             [Task: "Find text in files"]
             {"command": "grep -r 'searchtext' ."}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "ps aux --sort=-%mem | head -10"}
-            
+
             [Task: "Create a directory"]
             {"command": "mkdir -p NewFolder"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "find . -name '*.txt' -exec cp {} ~/Backup \\;"}
-            
+
             [Task: "List files in current directory"]
             {"command": "ls -la"}
             """
-        
+
         if shell_name in ["powershell", "pwsh"]:
             return """
             [Task: "List files with details"]
             {"command": "Get-ChildItem | Format-Table -Property Name, Length, LastWriteTime"}
-            
+
             [Task: "Find text in files"]
             {"command": "Get-ChildItem -Recurse | Select-String -Pattern 'searchtext'"}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "Get-Process | Sort-Object -Property WorkingSet -Descending | Select-Object -First 10 Name, Id, WorkingSet"}
-            
+
             [Task: "Create a directory"]
             {"command": "New-Item -ItemType Directory -Path 'NewFolder'"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "Get-ChildItem -Path . -Filter *.txt | Copy-Item -Destination C:\\Backup"}
             """
@@ -516,16 +529,16 @@ class PromptBuilder:
             return """
             [Task: "List files with details"]
             {"command": "dir /a"}
-            
+
             [Task: "Find text in files"]
             {"command": "findstr /s /i 'searchtext' *.*"}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "tasklist /v /fi 'memusage gt 1000' /sort:memusage"}
-            
+
             [Task: "Create a directory"]
             {"command": "mkdir NewFolder"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "for %i in (*.txt) do copy %i C:\\Backup"}
             """
@@ -533,16 +546,16 @@ class PromptBuilder:
             return """
             [Task: "List files with details"]
             {"command": "ls -la"}
-            
+
             [Task: "Find text in files"]
             {"command": "grep -r 'searchtext' ."}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "ps aux --sort=-%mem | head -10"}
-            
+
             [Task: "Create a directory"]
             {"command": "mkdir -p NewFolder"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "find . -name '*.txt' -exec cp {} ~/Backup \\;"}
             """
@@ -550,16 +563,16 @@ class PromptBuilder:
             return """
             [Task: "List files with details"]
             {"command": "ls -la"}
-            
+
             [Task: "Find text in files"]
             {"command": "grep -r 'searchtext' ."}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "ps aux --sort=-%mem | head -10"}
-            
+
             [Task: "Create a directory"]
             {"command": "mkdir -p NewFolder"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "cp *.txt ~/Backup"}
             """
@@ -567,16 +580,16 @@ class PromptBuilder:
             return """
             [Task: "List files with details"]
             {"command": "ls -la"}
-            
+
             [Task: "Find text in files"]
             {"command": "grep -r 'searchtext' ."}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "ps aux --sort=-%mem | head -10"}
-            
+
             [Task: "Create a directory"]
             {"command": "mkdir -p NewFolder"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "for file in *.txt; cp $file ~/Backup; end"}
             """
@@ -585,109 +598,117 @@ class PromptBuilder:
             return """
             [Task: "List files with details"]
             {"command": "ls -la"}
-            
+
             [Task: "Find text in files"]
             {"command": "grep -r 'searchtext' ."}
-            
+
             [Task: "Get running processes sorted by memory usage"]
             {"command": "ps aux --sort=-%mem | head -10"}
-            
+
             [Task: "Create a directory"]
             {"command": "mkdir -p NewFolder"}
-            
+
             [Task: "Copy files with specific extension"]
             {"command": "find . -name '*.txt' -exec cp {} ~/Backup \\;"}
             """
-        
+
     def build_translation_prompt(
         self,
         user_request: str,
         command_history: Optional[List[str]] = None,
-        user_preferences: Optional[Dict[str, Any]] = None
+        user_preferences: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, str]]:
         """
         Build a complete prompt for command translation with enhanced shell awareness.
-        
+
         Args:
             user_request (str): The user's natural language request.
             command_history (Optional[List[str]]): Previous commands for context.
             user_preferences (Optional[Dict[str, Any]]): User preferences.
-            
+
         Returns:
             List[Dict[str, str]]: List of message dictionaries for the OpenAI API.
         """
         messages = []
-        
+
         # System prompt
         system_prompt = self.base_system_prompt + "\n\n" + self.safety_prompt
-        
+
         # Add platform and shell information
         system_prompt += "\n\n" + self._get_platform_prompt()
         system_prompt += "\n" + self._get_shell_prompt()
-        
+
         # Add platform-specific examples
         system_prompt += "\n\n" + self._get_platform_examples()
-        
+
         # Add command adaptation instruction
-        system_prompt += "\n\nIMPORTANT: Always adapt commands to the detected shell environment. "
+        system_prompt += (
+            "\n\nIMPORTANT: Always adapt commands to the detected shell environment. "
+        )
         system_prompt += "Use shell-specific syntax and commands that are optimal for the user's shell."
-        
+
         # Special case for Git Bash on Windows
         shell_info = platform_utils.detect_shell()
         if platform_utils.is_windows() and shell_info and shell_info[0] == "bash":
             system_prompt += "\n\nCRITICAL: You are in Git Bash on Windows. "
             system_prompt += "You MUST use Unix/Bash commands like 'ls', NOT Windows commands like 'Get-ChildItem' or 'dir'. "
             system_prompt += "Always use forward slashes for paths. "
-            system_prompt += "Git Bash is a Unix-like environment on Windows, so use Unix commands."
-        
+            system_prompt += (
+                "Git Bash is a Unix-like environment on Windows, so use Unix commands."
+            )
+
         messages.append({"role": "system", "content": system_prompt})
-        
+
         # Add system context
         system_context = self.build_system_context()
-        messages.append({
-            "role": "system",
-            "content": f"System information: {json.dumps(system_context, indent=2)}"
-        })
-        
+        messages.append(
+            {
+                "role": "system",
+                "content": f"System information: {json.dumps(system_context, indent=2)}",
+            }
+        )
+
         # Add shell-specific examples based on detected shell
         shell_info = platform_utils.detect_shell()
         if shell_info:
             shell_name, shell_version, capabilities = shell_info
             shell_examples = self._get_shell_specific_examples(shell_name)
             if shell_examples:
-                messages.append({
-                    "role": "system",
-                    "content": f"Examples for {shell_name} shell:\n{shell_examples}"
-                })
-        
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": f"Examples for {shell_name} shell:\n{shell_examples}",
+                    }
+                )
+
         # Add command history for context if available
         if command_history and len(command_history) > 0:
             history_prompt = "Recent command history:\n"
             for i, cmd in enumerate(command_history[-5:]):  # Last 5 commands
                 history_prompt += f"{i+1}. {cmd}\n"
-            
+
             messages.append({"role": "system", "content": history_prompt})
-        
+
         # Add user preferences if available
         if user_preferences:
             pref_prompt = "User preferences:\n"
             for key, value in user_preferences.items():
                 pref_prompt += f"- {key}: {value}\n"
-            
+
             messages.append({"role": "system", "content": pref_prompt})
-        
+
         # Add the user's request
         messages.append({"role": "user", "content": user_request})
-        
+
         return messages
-    
+
     def build_explanation_prompt(self, command: str) -> List[Dict[str, str]]:
         """
         Build a prompt for explaining a command.
-        
+
         Args:
             command (str): The command to explain.
-            
+
         Returns:
             List[Dict[str, str]]: List of message dictionaries for the OpenAI API.
         """
@@ -695,20 +716,20 @@ class PromptBuilder:
         You are CommandRex, an expert in explaining terminal commands.
         Your task is to explain the given command in a clear, educational way.
         Break down each component and explain what it does.
-        
+
         EXPLANATION GUIDELINES:
         1. Start with a high-level overview of what the command accomplishes
         2. Break down each component (command, flags, arguments, etc.)
         3. Explain how the components work together
         4. Mention any potential pitfalls or common mistakes
         5. Suggest related commands or variations
-        
+
         COMPONENT BREAKDOWN GUIDELINES:
         - For each flag, explain its specific purpose
         - For arguments, explain the expected format and impact
         - For pipes or redirections, explain how data flows
         - For complex syntax, explain the pattern and why it works
-        
+
         RESPONSE FORMAT REQUIREMENTS:
         You MUST respond in valid JSON format with this EXACT structure:
         {
@@ -719,9 +740,9 @@ class PromptBuilder:
           "examples": ["example usage 1", "example usage 2"],
           "related_commands": ["related1", "related2"]
         }
-        
+
         EXAMPLE EXPLANATIONS:
-        
+
         [Command: "find . -name "*.txt" -type f -size +1M"]
         {
           "explanation": "This command searches for text files larger than 1 megabyte in the current directory and all subdirectories.",
@@ -739,21 +760,21 @@ class PromptBuilder:
           "related_commands": ["grep", "locate", "ls", "du"]
         }
         """
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Explain this command: {command}"}
+            {"role": "user", "content": f"Explain this command: {command}"},
         ]
-        
+
         return messages
-    
+
     def build_safety_assessment_prompt(self, command: str) -> List[Dict[str, str]]:
         """
         Build a prompt for assessing command safety.
-        
+
         Args:
             command (str): The command to assess.
-            
+
         Returns:
             List[Dict[str, str]]: List of message dictionaries for the OpenAI API.
         """
@@ -762,21 +783,21 @@ class PromptBuilder:
         Your task is to assess the safety of the given command.
         Identify any potentially dangerous operations, such as file deletion,
         system modifications, or network operations.
-        
+
         SAFETY ASSESSMENT GUIDELINES:
         1. Carefully analyze the command for destructive operations
         2. Consider the scope of impact (single file vs. entire system)
         3. Identify potential unintended consequences
         4. Assess the reversibility of the operation
         5. Consider security implications
-        
+
         RISK CATEGORIES TO CHECK:
         - Data loss: Commands that delete, overwrite, or modify files
         - System modification: Changes to system settings or configuration
         - Security risks: Exposure of sensitive data or security weaknesses
         - Resource consumption: Commands that might consume excessive resources
         - Network impact: Operations affecting network services or connections
-        
+
         RESPONSE FORMAT REQUIREMENTS:
         You MUST respond in valid JSON format with this EXACT structure:
         {
@@ -786,9 +807,9 @@ class PromptBuilder:
           "recommendations": ["recommendation 1", "recommendation 2"],
           "safer_alternatives": ["safer alternative 1", "safer alternative 2"]
         }
-        
+
         EXAMPLE ASSESSMENTS:
-        
+
         [Command: "rm -rf /"]
         {
           "is_safe": false,
@@ -807,7 +828,7 @@ class PromptBuilder:
             "find ./directory -name 'pattern' -delete"
           ]
         }
-        
+
         [Command: "ls -la"]
         {
           "is_safe": true,
@@ -817,10 +838,13 @@ class PromptBuilder:
           "safer_alternatives": []
         }
         """
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Assess the safety of this command: {command}"}
+            {
+                "role": "user",
+                "content": f"Assess the safety of this command: {command}",
+            },
         ]
-        
+
         return messages
