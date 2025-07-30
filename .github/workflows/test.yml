@@ -48,7 +48,7 @@ jobs:
 
     - name: Run unit tests
       run: |
-        poetry run pytest tests/unit -v --cov=commandrex --cov-report=xml --cov-report=term-missing -m unit
+        poetry run pytest tests/unit -v -m unit
 
     - name: Run integration tests
       run: |
