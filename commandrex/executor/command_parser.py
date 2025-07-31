@@ -229,12 +229,16 @@ class CommandParser:
 
         return bool(reasons), reasons
 
-    def validate_command(self, command: str) -> Dict[str, Any]:
+    def validate_command(
+        self, command: str, platform_info: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Any]:
         """
         Validate a command and provide detailed information.
 
         Args:
             command (str): The command to validate.
+            platform_info (Optional[Dict[str, str]]): Platform information for
+                cross-platform validation.
 
         Returns:
             Dict[str, Any]: Validation results.
@@ -270,8 +274,12 @@ class CommandParser:
             result["reasons"].append("Could not parse command")
             return result
 
-        # Check if command exists
-        if not platform_utils.is_windows():
+        # Check if command exists (only when validating for the same platform as host)
+        host_is_windows = platform_utils.is_windows()
+        target_os = platform_info.get("os_name", "").lower() if platform_info else ""
+
+        # Only check executable existence when target platform matches host platform
+        if not host_is_windows and target_os in ["", "linux", "darwin"]:
             # On Unix-like systems, we can use which to check if the command exists
             command_path = platform_utils.find_executable(parsed_command)
             if not command_path:

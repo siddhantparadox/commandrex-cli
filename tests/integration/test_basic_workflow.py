@@ -207,7 +207,8 @@ class TestCrossComponentDataFlow:
             assert "Select-String" in enhanced
 
             # Validation should work with enhanced command
-            validation = parser.validate_command(enhanced)
+            platform_info = {"os_name": "windows", "shell_name": "powershell"}
+            validation = parser.validate_command(enhanced, platform_info)
             assert validation["is_valid"] is True
 
             # Components extraction should work
