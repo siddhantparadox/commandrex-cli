@@ -238,7 +238,7 @@ class ShellManager:
         # Create process
         process = (
             await asyncio.create_subprocess_shell(
-                prepared_command,  # Use the prepared command instead of the original
+                prepared_command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,

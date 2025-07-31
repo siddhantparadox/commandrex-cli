@@ -499,12 +499,17 @@ def determine_best_guess_shell() -> Tuple[str, str]:
     if is_windows():
         # On Windows, default to PowerShell for modern systems, cmd for older ones
         try:
-            version = sys.getwindowsversion()
-            # Windows 10 and later
-            if version.major >= 10:
-                return "powershell", get_shell_version("powershell")
+            # Check if sys.getwindowsversion is available (Windows only)
+            if hasattr(sys, "getwindowsversion"):
+                version = sys.getwindowsversion()
+                # Windows 10 and later
+                if version.major >= 10:
+                    return "powershell", get_shell_version("powershell")
+                else:
+                    return "cmd", platform.version()
             else:
-                return "cmd", platform.version()
+                # Fallback when getwindowsversion is not available
+                return "powershell", get_shell_version("powershell")
         except Exception:
             return "cmd", platform.version()
     elif is_macos():
@@ -923,30 +928,33 @@ def supports_ansi_colors() -> bool:
     # Windows 10 build 14393 and later support ANSI colors
     if is_windows():
         # Check if running in Windows Terminal, which supports ANSI
-        if "WT_SESSION" in os.environ:
+        if os.environ.get("WT_SESSION"):
             return True
 
         # Check Windows version
         try:
-            version = sys.getwindowsversion()
-            # Windows 10 and later
-            if version.major >= 10:
-                return True
+            if hasattr(sys, "getwindowsversion"):
+                version = sys.getwindowsversion()
+                # Windows 10 and later
+                if version.major >= 10:
+                    return True
         except AttributeError:
             pass
 
         # Check ANSICON environment variable (third-party ANSI support)
-        if "ANSICON" in os.environ:
+        if os.environ.get("ANSICON"):
             return True
 
         # Check if running in a terminal that might support colors
-        if "TERM" in os.environ and os.environ["TERM"] != "dumb":
+        term_env = os.environ.get("TERM")
+        if term_env and term_env != "dumb":
             return True
 
         return False
 
     # For Unix systems, check TERM environment variable
-    if "TERM" in os.environ and os.environ["TERM"] != "dumb":
+    term_env = os.environ.get("TERM")
+    if term_env and term_env != "dumb":
         return True
 
     # Check if stdout is a TTY

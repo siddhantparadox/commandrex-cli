@@ -27,7 +27,21 @@ def get_api_key() -> Optional[str]:
         str or None: The API key if found, None otherwise.
     """
     # First try to get from keyring
-    api_key = keyring.get_password(SERVICE_NAME, API_KEY_NAME)
+    api_key = None
+    try:
+        api_key = keyring.get_password(SERVICE_NAME, API_KEY_NAME)
+    except ImportError:
+        # Re-raise ImportError for proper test behavior
+        raise
+    except Exception as e:
+        # Handle specific keyring backend issues gracefully (e.g., NoKeyringError in CI)
+        # but re-raise other exceptions for proper error handling
+        if "NoKeyringError" in str(type(e)) or "No recommended backend" in str(e):
+            logger.debug(f"Keyring backend not available: {str(e)}")
+            api_key = None
+        else:
+            # Re-raise other exceptions (like test-injected errors)
+            raise
 
     # If not in keyring, try environment variable
     if not api_key:
@@ -58,6 +72,8 @@ def save_api_key(api_key: str) -> bool:
         return True
     except Exception as e:
         logger.error(f"Failed to save API key: {str(e)}")
+        # In environments without keyring backend, we can't save securely
+        # but we don't want to crash the application
         return False
 
 
@@ -78,6 +94,9 @@ def delete_api_key() -> bool:
         return True
     except Exception as e:
         logger.error(f"Failed to delete API key: {str(e)}")
+        # Handle NoKeyringError specifically (when no keyring backend available)
+        if "NoKeyringError" in str(type(e)) or "No recommended backend" in str(e):
+            return True
         return False
 
 
