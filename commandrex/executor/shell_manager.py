@@ -228,7 +228,7 @@ class ShellManager:
 
         # Prepare the command
         prepared_command = self._prepare_command(command)
-        shell_args = self._get_shell_args()
+        self._get_shell_args()
 
         # Merge environment variables
         merged_env = os.environ.copy()
@@ -248,7 +248,7 @@ class ShellManager:
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
             env=merged_env,
-            **shell_args,
+            shell=True,  # create_subprocess_shell always requires shell=True
         )
 
         # Register the process
