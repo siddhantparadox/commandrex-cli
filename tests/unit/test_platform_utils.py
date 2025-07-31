@@ -440,7 +440,7 @@ class TestBestGuessShell:
 
     @patch("commandrex.executor.platform_utils.is_windows")
     @patch("commandrex.executor.platform_utils.is_macos")
-    @patch("sys.getwindowsversion")
+    @patch("sys.getwindowsversion", create=True)
     @patch("commandrex.executor.platform_utils.get_shell_version")
     def test_determine_best_guess_windows_10(
         self, mock_get_version, mock_win_version, mock_is_macos, mock_is_windows
@@ -883,7 +883,7 @@ class TestAnsiColorSupport:
         assert supports_ansi_colors() is True
 
     @patch("commandrex.executor.platform_utils.is_windows")
-    @patch("sys.getwindowsversion")
+    @patch("sys.getwindowsversion", create=True)
     def test_supports_ansi_colors_windows_10(self, mock_win_version, mock_is_windows):
         """Test ANSI color support on Windows 10."""
         mock_is_windows.return_value = True
@@ -918,7 +918,7 @@ class TestAnsiColorSupport:
 
     @patch("commandrex.executor.platform_utils.is_windows")
     @patch("os.environ.get")
-    @patch("sys.getwindowsversion")
+    @patch("sys.getwindowsversion", create=True)
     def test_supports_ansi_colors_dumb_terminal(
         self, mock_win_version, mock_env_get, mock_is_windows
     ):

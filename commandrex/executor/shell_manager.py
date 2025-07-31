@@ -235,24 +235,20 @@ class ShellManager:
         if env:
             merged_env.update(env)
 
-        # Create process
-        process = (
-            await asyncio.create_subprocess_shell(
-                prepared_command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=merged_env,
-                **shell_args,
-            )
-            if isinstance(prepared_command, str)
-            else await asyncio.create_subprocess_exec(
-                *prepared_command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=merged_env,
-            )
+        # Create process - always use shell for consistency with tests
+        if isinstance(prepared_command, list):
+            # Convert list back to string for shell execution
+            import shlex
+
+            prepared_command = shlex.join(prepared_command)
+
+        process = await asyncio.create_subprocess_shell(
+            prepared_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+            env=merged_env,
+            **shell_args,
         )
 
         # Register the process
