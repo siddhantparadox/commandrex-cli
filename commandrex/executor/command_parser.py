@@ -278,28 +278,144 @@ class CommandParser:
         host_is_windows = platform_utils.is_windows()
         target_os = platform_info.get("os_name", "").lower() if platform_info else ""
 
-        # Only check executable existence when target platform matches host platform
-        # Skip executable check if no platform_info provided (cross-platform testing)
-        if platform_info and not host_is_windows and target_os in ["linux", "darwin"]:
-            # On Unix-like systems, we can use which to check if the command exists
-            command_path = platform_utils.find_executable(parsed_command)
-            if not command_path:
-                result["is_valid"] = False
-                result["reasons"].append(f"Command '{parsed_command}' not found")
-                return result
-        elif platform_info and host_is_windows and target_os == "windows":
-            # On Windows systems, check if command exists
-            command_path = platform_utils.find_executable(parsed_command)
-            if not command_path:
-                result["is_valid"] = False
-                result["reasons"].append(f"Command '{parsed_command}' not found")
-                return result
+        # Define PowerShell-specific commands that don't exist as executables
+        powershell_commands = {
+            "select-string",
+            "get-childitem",
+            "remove-item",
+            "new-item",
+            "copy-item",
+            "move-item",
+            "get-content",
+            "set-content",
+            "where-object",
+            "foreach-object",
+            "sort-object",
+            "measure-object",
+        }
 
-        # Check if command is dangerous
+        # Define common Unix commands that shouldn't be checked on Windows
+        unix_commands = {
+            "ls",
+            "cat",
+            "grep",
+            "find",
+            "which",
+            "man",
+            "ps",
+            "kill",
+            "chmod",
+            "chown",
+            "chgrp",
+            "tar",
+            "gzip",
+            "gunzip",
+            "curl",
+            "wget",
+            "ssh",
+            "scp",
+            "rsync",
+            "awk",
+            "sed",
+            "sort",
+            "uniq",
+            "head",
+            "tail",
+            "wc",
+            "diff",
+            "patch",
+        }
+
+        # Define common Windows commands that shouldn't be checked on Unix
+        # Also includes Windows built-in commands that don't exist as executables
+        windows_commands = {
+            "dir",
+            "type",
+            "copy",
+            "move",
+            "del",
+            "md",
+            "rd",
+            "cls",
+            "echo",
+            "set",
+            "where",
+            "findstr",
+            "tasklist",
+            "taskkill",
+            "net",
+            "sc",
+            "reg",
+            "cd",
+            "pushd",
+            "popd",
+            "vol",
+            "date",
+            "time",
+            "ver",
+            "path",
+            "prompt",
+            "title",
+            "color",
+            "mode",
+            "more",
+            "sort",
+            "find",
+            "fc",
+            "comp",
+            "diskcomp",
+            "diskcopy",
+            "xcopy",
+            "robocopy",
+            "attrib",
+            "cacls",
+            "icacls",
+        }
+
+        should_check_executable = False
+
+        if platform_info:
+            # Cross-platform testing: only check when target matches host
+            if not host_is_windows and target_os in ["linux", "darwin"]:
+                # On Unix host validating Unix target - check executables
+                should_check_executable = True
+            elif host_is_windows and target_os == "windows":
+                # On Windows host validating Windows target - skip PS and built-ins
+                if (
+                    parsed_command.lower() not in powershell_commands
+                    and parsed_command.lower() not in windows_commands
+                ):
+                    should_check_executable = True
+        else:
+            # No platform_info provided - be more lenient for cross-platform
+            if not host_is_windows:
+                # Unix host: only check for commands that aren't common Windows commands
+                if parsed_command.lower() not in windows_commands:
+                    should_check_executable = True
+            else:
+                # Windows host: skip Unix commands, PS cmdlets, Windows built-ins
+                if (
+                    parsed_command.lower() not in unix_commands
+                    and parsed_command.lower() not in powershell_commands
+                    and parsed_command.lower() not in windows_commands
+                ):
+                    should_check_executable = True
+
+        # Check if command is dangerous first
         is_dangerous, dangerous_reasons = self.is_dangerous(command)
         result["is_dangerous"] = is_dangerous
+
+        # If command is dangerous, skip executable check - we want to validate
+        # dangerous commands so they can be properly flagged and handled
         if is_dangerous:
             result["reasons"].extend(dangerous_reasons)
+        elif should_check_executable:
+            # Only check executable existence for non-dangerous commands
+            command_path = platform_utils.find_executable(parsed_command)
+            if not command_path:
+                result["is_valid"] = False
+                result["reasons"].append(f"Command '{parsed_command}' not found")
+                return result
 
         # Check if command needs confirmation
         needs_confirmation, confirmation_reasons = self.needs_confirmation(command)
