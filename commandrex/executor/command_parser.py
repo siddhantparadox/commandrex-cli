@@ -279,8 +279,16 @@ class CommandParser:
         target_os = platform_info.get("os_name", "").lower() if platform_info else ""
 
         # Only check executable existence when target platform matches host platform
-        if not host_is_windows and target_os in ["", "linux", "darwin"]:
+        # Skip executable check if no platform_info provided (cross-platform testing)
+        if platform_info and not host_is_windows and target_os in ["linux", "darwin"]:
             # On Unix-like systems, we can use which to check if the command exists
+            command_path = platform_utils.find_executable(parsed_command)
+            if not command_path:
+                result["is_valid"] = False
+                result["reasons"].append(f"Command '{parsed_command}' not found")
+                return result
+        elif platform_info and host_is_windows and target_os == "windows":
+            # On Windows systems, check if command exists
             command_path = platform_utils.find_executable(parsed_command)
             if not command_path:
                 result["is_valid"] = False

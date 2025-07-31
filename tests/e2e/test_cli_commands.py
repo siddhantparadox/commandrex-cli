@@ -8,12 +8,14 @@ explanation, execution, and user interactions.
 import json
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from typer.testing import CliRunner
 
 from commandrex.config.api_manager import delete_api_key
 from commandrex.main import app
 
 
+@pytest.mark.e2e
 class TestCLIEndToEnd:
     """End-to-end tests for CLI commands."""
 
@@ -254,6 +256,7 @@ class TestCLIEndToEnd:
         assert "dangerous" in result.stdout.lower() or "risk" in result.stdout.lower()
 
 
+@pytest.mark.e2e
 class TestCLIConfiguration:
     """Test CLI configuration and setup commands."""
 
@@ -330,6 +333,7 @@ class TestCLIConfiguration:
                     assert result.exit_code == 0
 
 
+@pytest.mark.e2e
 class TestCLIErrorHandling:
     """Test CLI error handling and edge cases."""
 
@@ -397,6 +401,7 @@ class TestCLIErrorHandling:
         assert result.exit_code == 1
 
 
+@pytest.mark.e2e
 class TestCLIIntegrationWorkflows:
     """Test complete CLI workflows and integrations."""
 
@@ -537,6 +542,7 @@ class TestCLIIntegrationWorkflows:
         )
 
 
+@pytest.mark.e2e
 class TestCLIUserInteraction:
     """Test CLI user interaction and prompts."""
 
@@ -628,6 +634,7 @@ class TestCLIUserInteraction:
                     assert result.exit_code == 0
 
 
+@pytest.mark.e2e
 class TestCLIEdgeCases:
     """Test CLI edge cases and boundary conditions."""
 
@@ -718,6 +725,7 @@ class TestCLIEdgeCases:
                 assert result.exit_code == 0
 
 
+@pytest.mark.e2e
 class TestCLIPerformance:
     """Test CLI performance and resource usage."""
 
