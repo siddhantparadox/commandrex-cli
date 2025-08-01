@@ -42,7 +42,7 @@ class TestSettingsInitialization:
         settings = isolated_settings
 
         # Check that default settings are loaded
-        assert settings.settings["api"]["model"] == "gpt-4o"
+        assert settings.settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
         assert settings.settings["api"]["temperature"] == 0.2
         assert settings.settings["ui"]["theme"] == "dark"
         assert settings.settings["commands"]["confirm_dangerous"] is True
@@ -211,7 +211,7 @@ class TestSettingsLoadSave:
 
         assert result is False
         # Should still have default settings
-        assert settings.settings["api"]["model"] == "gpt-4o"
+        assert settings.settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
 
     def test_load_settings_invalid_json(self, isolated_settings):
         """Test loading settings with invalid JSON."""
@@ -227,7 +227,7 @@ class TestSettingsLoadSave:
 
             assert result is False
             # Should still have default settings
-            assert settings.settings["api"]["model"] == "gpt-4o"
+            assert settings.settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
         finally:
             os.unlink(temp_file)
 
@@ -271,7 +271,7 @@ class TestSettingsAccess:
         settings = isolated_settings
 
         value = settings.get("api", "model")
-        assert value == "gpt-4o"
+        assert value == "gpt-4.1-mini-2025-04-14"
 
         value = settings.get("ui", "theme")
         assert value == "dark"
@@ -330,11 +330,11 @@ class TestSettingsAccess:
         assert isinstance(all_settings, dict)
         assert "api" in all_settings
         assert "ui" in all_settings
-        assert all_settings["api"]["model"] == "gpt-4o"
+        assert all_settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
 
         # Verify it's a copy, not the original
         all_settings["api"]["model"] = "modified"
-        assert settings.settings["api"]["model"] == "gpt-4o"
+        assert settings.settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
 
 
 class TestSettingsReset:
@@ -352,7 +352,7 @@ class TestSettingsReset:
         settings.reset_to_defaults()
 
         # Verify settings are back to defaults
-        assert settings.settings["api"]["model"] == "gpt-4o"
+        assert settings.settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
         assert settings.settings["ui"]["theme"] == "dark"
 
     def test_reset_section_existing(self, isolated_settings):
@@ -367,7 +367,7 @@ class TestSettingsReset:
         result = settings.reset_section("api")
 
         assert result is True
-        assert settings.settings["api"]["model"] == "gpt-4o"
+        assert settings.settings["api"]["model"] == "gpt-4.1-mini-2025-04-14"
         assert settings.settings["api"]["temperature"] == 0.2
 
     def test_reset_section_nonexistent(self, isolated_settings):

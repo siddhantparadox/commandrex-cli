@@ -40,14 +40,17 @@ class OpenAIClient:
     for OpenAI API requests.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
+    def __init__(
+        self, api_key: Optional[str] = None, model: str = "gpt-4.1-mini-2025-04-14"
+    ):
         """
         Initialize the OpenAI client.
 
         Args:
             api_key (Optional[str]): OpenAI API key. If None, will attempt to
                 retrieve from keyring.
-            model (str): The model to use for completions. Defaults to "gpt-4o".
+            model (str): The model to use for completions. Defaults to
+                "gpt-4.1-mini-2025-04-14".
         """
         self.api_key = api_key or api_manager.get_api_key()
         if not self.api_key:

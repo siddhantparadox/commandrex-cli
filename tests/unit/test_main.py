@@ -411,7 +411,7 @@ class TestRunCommand:
 
         assert result.exit_code == 0
         mock_process.assert_called_once_with(
-            "list files", None, "gpt-4o-mini", yes_flag=False
+            "list files", None, "gpt-4.1-mini-2025-04-14", yes_flag=False
         )
 
     @patch("commandrex.main.settings.settings.set")

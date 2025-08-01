@@ -270,7 +270,11 @@ def temp_dir():
 def temp_config_file():
     """Create a temporary configuration file."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        config = {"api_key": "test-key", "model": "gpt-4o-mini", "debug": False}
+        config = {
+            "api_key": "test-key",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "debug": False,
+        }
         json.dump(config, f)
         f.flush()
         yield f.name
