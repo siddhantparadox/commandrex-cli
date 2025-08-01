@@ -107,7 +107,7 @@ class TestCallbackCommand:
         result = self.runner.invoke(app, [])
 
         assert result.exit_code == 0
-        assert "Usage:" in result.stdout
+        assert "CommandRex - Natural Language Terminal Interface" in result.stdout
 
 
 class TestApiKeyChecking:

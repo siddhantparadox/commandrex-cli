@@ -12,7 +12,7 @@ CommandRex allows you to interact with your terminal using natural language. Sim
 - **Command Explanations**: Get detailed explanations of what commands do and how they work
 - **Safety Analysis**: Automatic detection of potentially dangerous commands with warnings
 - **Cross-Platform Support**: Works on Windows, macOS, and Linux
-- **Interactive Mode**: Real-time command translation and execution
+- **Interactive Mode**: Real-time command translation and execution with ASCII art welcome screen
 - **Educational Breakdowns**: Learn terminal commands through component-by-component explanations
 - **Secure API Key Management**: Your OpenAI API key is stored securely in your system's keyring
 
@@ -83,7 +83,7 @@ Start the interactive terminal interface:
 commandrex run
 ```
 
-This launches CommandRex in interactive mode, where you can type natural language requests and get immediate command translations.
+This launches CommandRex in interactive mode with a welcome screen displaying "COMMAND REX" in green ASCII art. You can type natural language requests and get immediate command translations.
 
 **Options:**
 - `--debug` or `-d`: Enable debug mode with detailed system information
@@ -133,13 +133,27 @@ This will provide:
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this explanation
 - `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
 
-### Help Command
+### Help System
 
-Get help information about CommandRex and its commands:
+CommandRex features a comprehensive help system with beautiful formatting:
 
+**Main Help:**
 ```bash
 commandrex --help
 ```
+Shows a beautifully formatted overview with:
+- Available commands in a table
+- Global options in a styled box
+- Usage examples with syntax highlighting
+- Troubleshooting section with common solutions
+
+**Command-Specific Help:**
+```bash
+commandrex run --help        # Interactive mode help
+commandrex translate --help  # Translation command help
+commandrex explain --help    # Explanation command help
+```
+Each command provides detailed information about its options and usage patterns.
 
 ### Global Options
 
@@ -184,10 +198,11 @@ commandrex translate "create a directory structure for my new project" --execute
 commandrex run
 
 # In interactive mode:
-# 1. Type your request and press Enter
-# 2. See the translation and explanation
-# 3. Choose whether to execute it
-# 4. Type 'exit' or press Ctrl+C to quit
+# 1. Welcome screen displays "COMMAND REX" in green ASCII art
+# 2. Type your request and press Enter
+# 3. See the translation and explanation
+# 4. Choose whether to execute it
+# 5. Type 'exit' or press Ctrl+C to quit
 ```
 
 ### Troubleshooting

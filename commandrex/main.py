@@ -11,8 +11,10 @@ import sys
 from typing import List, Optional
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 # Import from our own modules
@@ -33,6 +35,73 @@ app = typer.Typer(
 console = Console()
 
 
+def show_main_help() -> None:
+    """Display custom formatted main help."""
+    # Title
+    console.print(
+        Panel.fit(
+            "[bold green]🦖 CommandRex - Natural Language Terminal Interface[/]",
+            border_style="green",
+        )
+    )
+
+    # Commands table
+    commands_table = Table(
+        title="Available Commands", show_header=True, box=box.ROUNDED
+    )
+    commands_table.add_column("Command", style="cyan", width=25)
+    commands_table.add_column("Description", style="white")
+
+    commands_table.add_row(
+        "run", "Start interactive terminal interface with welcome screen"
+    )
+    commands_table.add_row("translate", "Translate natural language to shell command")
+    commands_table.add_row("explain", "Explain what a shell command does")
+
+    console.print(commands_table)
+
+    # Global options
+    options_panel = Panel(
+        "[bold]Global Options:[/]\n\n"
+        "[cyan]--version, -v[/]       Show application version\n"
+        "[cyan]--reset-api-key[/]     Reset stored OpenAI API key\n"
+        "[cyan]--help, -h[/]          Show this help message",
+        title="Global Options",
+        border_style="blue",
+    )
+    console.print(options_panel)
+
+    # Usage examples
+    examples_panel = Panel(
+        "[bold]Quick Start:[/]\n\n"
+        "# Interactive mode with welcome screen\n"
+        "[green]commandrex run[/]\n\n"
+        "# Translate a query\n"
+        '[green]commandrex translate "list all Python files"[/]\n\n'
+        "# Explain a command\n"
+        '[green]commandrex explain "grep -r TODO"[/]\n\n'
+        "# Get help for specific commands\n"
+        "[green]commandrex run --help[/]\n"
+        "[green]commandrex translate --help[/]\n"
+        "[green]commandrex explain --help[/]",
+        title="Usage Examples",
+        border_style="green",
+    )
+    console.print(examples_panel)
+
+    # Troubleshooting
+    trouble_panel = Panel(
+        "[bold]Troubleshooting:[/]\n\n"
+        "[yellow]API Key Issues:[/] commandrex --reset-api-key\n"
+        "[yellow]Shell Detection:[/] commandrex run --debug\n"
+        "[yellow]Git Bash Users:[/] Use commandrex run -t 'query'\n"
+        "[yellow]Exit Interactive:[/] Type 'exit' or press Ctrl+C",
+        title="Common Issues",
+        border_style="yellow",
+    )
+    console.print(trouble_panel)
+
+
 def get_version() -> str:
     """Get the installed version of CommandRex."""
     try:
@@ -50,10 +119,17 @@ def callback(
     reset_api_key: bool = typer.Option(
         False, "--reset-api-key", help="Reset the stored OpenAI API key."
     ),
+    show_help: bool = typer.Option(
+        False, "--help", "-h", help="Show help message and exit."
+    ),
 ) -> None:
-    """CommandRex CLI."""
+    """CommandRex - A natural language interface for terminal commands."""
     # Only process these options if no command was invoked
     if ctx.invoked_subcommand is None:
+        if show_help:
+            show_main_help()
+            raise typer.Exit()
+
         if version:
             console.print(f"[bold green]CommandRex CLI Version:[/] {get_version()}")
             raise typer.Exit()
@@ -113,9 +189,9 @@ def callback(
 
             raise typer.Exit()
 
-        # If no options were provided, show help
-        if not version and not reset_api_key:
-            console.print(ctx.get_help())
+        # If no options were provided, show custom help
+        if not version and not reset_api_key and not show_help:
+            show_main_help()
             raise typer.Exit()
 
 
@@ -572,7 +648,14 @@ def run(
     """
     Start the CommandRex terminal interface.
 
-    This launches the interactive terminal UI for CommandRex.
+    Launch interactive mode with welcome screen, translate direct queries,
+    or use non-interactive mode with --translate flag.
+
+    Interactive mode shows "COMMAND REX" ASCII art and allows continuous
+    natural language queries until 'exit' or Ctrl+C.
+
+    For other commands: commandrex translate, commandrex explain,
+    commandrex --version, commandrex --reset-api-key
     """
     # Set up signal handlers for clean exit
     import signal
