@@ -9,6 +9,7 @@ CommandRex allows you to interact with your terminal using natural language. Sim
 ## Features
 
 - **Natural Language Command Translation**: Convert plain English to precise terminal commands
+- **Interactive Multi-Command Selection**: Choose from multiple suggested commands using arrow keys in a simple table interface
 - **Command Explanations**: Get detailed explanations of what commands do and how they work
 - **Safety Analysis**: Automatic detection of potentially dangerous commands with warnings
 - **Cross-Platform Support**: Works on Windows, macOS, and Linux
@@ -81,7 +82,7 @@ The project uses modern Python features available in 3.10+ and follows semantic 
 CommandRex can be invoked using either `commandrex` or `python -m commandrex` followed by a command (run, translate, explain) and options.
 
 For example:
-- `commandrex run` - Start interactive mode
+- `commandrex run` - Start interactive mode with multi-command selection
 - `commandrex translate "query"` - Translate a natural language query
 - `commandrex explain "command"` - Explain a shell command
 
@@ -95,15 +96,17 @@ commandrex run
 
 This launches CommandRex in interactive mode with a welcome screen displaying "COMMAND REX" in green ASCII art. You can type natural language requests and get immediate command translations.
 
+**New in Interactive Mode**: CommandRex now presents multiple command options by default. When you enter a query, you'll see a table with suggested commands and their explanations. Use arrow keys (↑/↓) to navigate and Enter to select. Press 'q' or ESC to cancel.
+
 **Options:**
 - `--debug` or `-d`: Enable debug mode with detailed system information
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this session
-- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
 - `--translate "query"` or `-t "query"`: Directly translate a query without entering interactive mode
 
 **Example:**
 ```bash
-commandrex run --model gpt-4o --debug
+commandrex run --model gpt-4.1-mini-2025-04-14 --debug
 ```
 
 ### Command Translation
@@ -116,14 +119,43 @@ commandrex translate "list all files in the current directory including hidden o
 
 **Options:**
 - `--execute` or `-e`: Execute the translated command after showing it
+- `--multi-select`: Present multiple command options to choose from interactively
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this translation
-- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
 
 **Examples:**
 ```bash
 commandrex translate "find all PDF files modified in the last week"
 commandrex translate "create a backup of my Documents folder" --execute
+commandrex translate "show me all files" --multi-select
 ```
+
+### Multi-Command Selection
+
+CommandRex can suggest multiple command options for your query:
+
+**In interactive mode** (default behavior):
+```bash
+commandrex run
+> show me all files
+```
+
+**In translate mode** (opt-in with flag):
+```bash
+commandrex translate "show me all files" --multi-select
+```
+
+The selection interface shows:
+- A simple table with "Command" and "Explanation" columns
+- Navigation with Up/Down arrow keys
+- Enter to select a command
+- 'q' or ESC to cancel
+
+After selection, CommandRex displays the standard output with:
+- The selected command
+- Full explanation
+- Component breakdown showing what each part does
+- Safety assessment if applicable
 
 ### Command Explanation
 
@@ -141,7 +173,7 @@ This will provide:
 
 **Options:**
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this explanation
-- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4o-mini)
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
 
 ### Help System
 
@@ -196,10 +228,10 @@ The API key setup only happens once; the key is stored securely for future use.
 commandrex translate "find large files in my Downloads folder"
 ```
 
-**Translation with Execution:**
+**Translation with Multi-Select:**
 ```bash
-# Translate and execute a command
-commandrex translate "create a directory structure for my new project" --execute
+# Get multiple options and choose interactively
+commandrex translate "show system information" --multi-select
 ```
 
 **Interactive Mode:**
@@ -210,9 +242,11 @@ commandrex run
 # In interactive mode:
 # 1. Welcome screen displays "COMMAND REX" in green ASCII art
 # 2. Type your request and press Enter
-# 3. See the translation and explanation
-# 4. Choose whether to execute it
-# 5. Type 'exit' or press Ctrl+C to quit
+# 3. See multiple command options in a table
+# 4. Use arrow keys to select the best option
+# 5. See the translation and explanation
+# 6. Choose whether to execute it
+# 7. Type 'exit' or press Ctrl+C to quit
 ```
 
 ### Troubleshooting
@@ -226,8 +260,9 @@ commandrex --reset-api-key
 **Command Accuracy:**
 If a translated command doesn't match your intent:
 1. Try being more specific in your request
-2. Use the interactive mode to refine your query
-3. Try a different model with `--model gpt-4o` for potentially better results
+2. Use the multi-select feature to see alternative options
+3. Use the interactive mode to refine your query
+4. Try a different model with `--model gpt-4.1-mini-2025-04-14` for potentially better results
 
 **Shell Detection:**
 ```bash
@@ -253,10 +288,11 @@ CommandRex uses OpenAI's language models to translate your natural language requ
 
 The application:
 1. Analyzes your request
-2. Generates an appropriate command
-3. Explains what the command does
-4. Checks for potential safety issues
-5. Executes the command if requested
+2. Generates multiple appropriate command options (in interactive mode)
+3. Lets you select the best option using arrow keys
+4. Explains what the command does
+5. Checks for potential safety issues
+6. Executes the command if requested
 
 ## Security
 

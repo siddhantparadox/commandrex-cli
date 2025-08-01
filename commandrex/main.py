@@ -364,6 +364,11 @@ def translate(
         "-m",
         help="OpenAI model to use. Find more models at https://platform.openai.com/docs/models",
     ),
+    multi_select: bool = typer.Option(
+        False,
+        "--multi-select",
+        help="Present multiple command options to choose from before executing.",
+    ),
 ) -> None:
     """
     Translate natural language to a shell command.
@@ -399,21 +404,121 @@ def translate(
     # Get system context
     system_context = pb.build_system_context()
 
-    # Show thinking animation
-    with console.status("[bold green]Thinking...[/]", spinner="dots"):
+    # If multi-select flag is provided, show options selector
+    if multi_select:
         try:
-            # Run in event loop
-            result = asyncio.run(
-                client.translate_to_command(query_text, system_context)
+            # Alias CamelCase to snake_case to satisfy Ruff naming rules
+            from commandrex.ui.command_selector import (  # noqa: N813
+                InteractiveCommandSelector as _interactive_selector,
             )
-        except Exception as e:
-            console.print(f"[bold red]Error:[/] {str(e)}")
-            raise typer.Exit(1) from e
+        except Exception:
+            _interactive_selector = None  # type: ignore
 
-    # Display the result
-    command = result.command
-    explanation = result.explanation
-    is_dangerous = result.is_dangerous
+        with console.status("[bold green]Generating options...[/]", spinner="dots"):
+            try:
+                options_results = asyncio.run(
+                    client.get_command_options(query_text, system_context)
+                )
+            except Exception as e:
+                console.print(f"[bold red]Error:[/] {str(e)}")
+                raise typer.Exit(1) from e
+
+        # Map results into CommandOption objects (command, explanation, components)
+        from commandrex.models.command_models import CommandComponent, CommandOption
+
+        mapped_options: List[CommandOption] = []
+        for r in options_results:
+            comps: List[CommandComponent] = []
+            for c in r.components or []:
+                if isinstance(c, dict):
+                    comps.append(
+                        CommandComponent(
+                            part=c.get("part", ""),
+                            description=c.get("description", ""),
+                            type=c.get("type", "other"),  # type: ignore[arg-type]
+                        )
+                    )
+            mapped_options.append(
+                CommandOption(
+                    command=r.command,
+                    description=r.explanation,
+                    components=comps,
+                    safety_level=(
+                        r.safety_assessment.get("risk_level", "unknown")
+                        if isinstance(r.safety_assessment, dict)
+                        else "unknown"
+                    ),
+                    safety_assessment=r.safety_assessment
+                    if isinstance(r.safety_assessment, dict)
+                    else {},
+                )
+            )
+
+        if _interactive_selector and mapped_options:
+            selector = _interactive_selector(console=console)
+            chosen = selector.select(mapped_options)
+            if not chosen:
+                console.print("[yellow]Selection cancelled.[/]")
+                return
+            # Use chosen to set variables for the normal display/execute flow
+            command = chosen.command
+            explanation = chosen.description
+            is_dangerous = False
+            if isinstance(chosen.safety_assessment, dict):
+                risk = chosen.safety_assessment.get("risk_level", "unknown")
+                is_dangerous = risk in ("medium", "high")
+            selected_components = chosen.components
+            selected_safety = (
+                chosen.safety_assessment
+                if isinstance(chosen.safety_assessment, dict)
+                else {}
+            )
+
+            # create a lightweight result-like object to keep downstream code simple
+            class _R:
+                pass
+
+            result = _R()
+            result.command = command
+            result.explanation = explanation
+            result.is_dangerous = is_dangerous
+            result.components = selected_components
+            result.safety_assessment = selected_safety
+            result.alternatives = []
+        else:
+            # Fallback to single result path
+            with console.status("[bold green]Thinking...[/]", spinner="dots"):
+                try:
+                    single = asyncio.run(
+                        client.translate_to_command(query_text, system_context)
+                    )
+                except Exception as e:
+                    console.print(f"[bold red]Error:[/] {str(e)}")
+                    raise typer.Exit(1) from e
+            command = single.command
+            explanation = single.explanation
+            is_dangerous = single.is_dangerous
+            result = single
+            selected_components = single.components
+            selected_safety = single.safety_assessment
+    else:
+        # Show thinking animation
+        with console.status("[bold green]Thinking...[/]", spinner="dots"):
+            try:
+                # Run in event loop
+                result = asyncio.run(
+                    client.translate_to_command(query_text, system_context)
+                )
+            except Exception as e:
+                console.print(f"[bold red]Error:[/] {str(e)}")
+                raise typer.Exit(1) from e
+
+        # Display the result
+        command = result.command
+        explanation = result.explanation
+        is_dangerous = result.is_dangerous
+        selected_components = result.components
+        selected_safety = result.safety_assessment
 
     # Create a panel with the command and explanation
     command_text = Text(command, style="bold white on blue")
@@ -436,20 +541,36 @@ def translate(
 
     # Show safety assessment if the command is dangerous
     if is_dangerous:
-        safety_concerns = result.safety_assessment.get("concerns", [])
+        safety_concerns = []
+        try:
+            safety_concerns = (selected_safety or {}).get("concerns", [])
+        except Exception:
+            safety_concerns = []
         if safety_concerns:
             console.print("\n[bold red]Safety Concerns:[/]")
             for concern in safety_concerns:
                 console.print(f"  • {concern}")
 
     # Show command components
-    components = result.components
+    components = selected_components
     if components:
         console.print("\n[bold]Command Components:[/]")
         for component in components:
-            console.print(
-                f"  • [bold]{component['part']}[/]: {component['description']}"
-            )
+            try:
+                # component could be dict or pydantic model from new path
+                part = (
+                    component["part"]
+                    if isinstance(component, dict)
+                    else getattr(component, "part", "")
+                )
+                desc = (
+                    component["description"]
+                    if isinstance(component, dict)
+                    else getattr(component, "description", "")
+                )
+                console.print(f"  • [bold]{part}[/]: {desc}")
+            except Exception:
+                console.print(f"  • {component}")
 
     # Show alternatives if available
     alternatives = getattr(result, "alternatives", [])
@@ -804,7 +925,9 @@ def run(
                     continue
 
                 # Process the translation
-                process_translation(user_input, api_key, model, yes_flag=False)
+                process_translation(
+                    user_input, api_key, model, yes_flag=False, use_multi_select=True
+                )
             except KeyboardInterrupt:
                 # This will be handled by our signal handler
                 pass
@@ -821,7 +944,11 @@ def run(
 
 
 def process_translation(
-    query: str, api_key: Optional[str], model: str, yes_flag: bool = False
+    query: str,
+    api_key: Optional[str],
+    model: str,
+    yes_flag: bool = False,
+    use_multi_select: bool = False,
 ) -> None:
     """
     Process a natural language query and translate it to a command.
@@ -848,8 +975,82 @@ def process_translation(
 
     # Translate the command
     try:
-        # Run in event loop
-        result = asyncio.run(client.translate_to_command(query, system_context))
+        if use_multi_select:
+            options = asyncio.run(client.get_command_options(query, system_context))
+            from commandrex.models.command_models import CommandComponent, CommandOption
+            from commandrex.ui.command_selector import (  # noqa: N813
+                InteractiveCommandSelector as _interactive_selector,
+            )
+
+            mapped: List[CommandOption] = []
+            for r in options:
+                comps: List[CommandComponent] = []
+                for c in r.components or []:
+                    if isinstance(c, dict):
+                        comps.append(
+                            CommandComponent(
+                                part=c.get("part", ""),
+                                description=c.get("description", ""),
+                                type=c.get("type", "other"),  # type: ignore[arg-type]
+                            )
+                        )
+                mapped.append(
+                    CommandOption(
+                        command=r.command,
+                        description=r.explanation,
+                        components=comps,
+                        safety_level=(
+                            r.safety_assessment.get("risk_level", "unknown")
+                            if isinstance(r.safety_assessment, dict)
+                            else "unknown"
+                        ),
+                        safety_assessment=r.safety_assessment
+                        if isinstance(r.safety_assessment, dict)
+                        else {},
+                    )
+                )
+            chosen = None
+            if mapped:
+                selector = _interactive_selector(console=console)
+                chosen = selector.select(mapped)
+            if chosen:
+                # synthesize a result-like object for rendering/execution path
+                command = chosen.command
+                explanation = chosen.description
+                is_dangerous = False
+                if isinstance(chosen.safety_assessment, dict):
+                    risk = chosen.safety_assessment.get("risk_level", "unknown")
+                    is_dangerous = risk in ("medium", "high")
+                selected_components = chosen.components
+                selected_safety = (
+                    chosen.safety_assessment
+                    if isinstance(chosen.safety_assessment, dict)
+                    else {}
+                )
+
+                # create a lightweight result-like object to keep downstream code simple
+                class _R:
+                    pass
+
+                result = _R()
+                result.command = command
+                result.explanation = explanation
+                result.is_dangerous = is_dangerous
+                result.components = selected_components
+                result.safety_assessment = selected_safety
+                result.alternatives = []
+            else:
+                # If user cancelled selection, just return without error
+                console.print("[yellow]Selection cancelled.[/]")
+                return
+        else:
+            # Run in event loop
+            result = asyncio.run(client.translate_to_command(query, system_context))
+            command = result.command
+            explanation = result.explanation
+            is_dangerous = result.is_dangerous
+            selected_components = result.components
+            selected_safety = result.safety_assessment
 
         # Display the result
         command = result.command
@@ -877,20 +1078,35 @@ def process_translation(
 
         # Show safety assessment if the command is dangerous
         if is_dangerous:
-            safety_concerns = result.safety_assessment.get("concerns", [])
+            safety_concerns = []
+            try:
+                safety_concerns = (selected_safety or {}).get("concerns", [])
+            except Exception:
+                safety_concerns = []
             if safety_concerns:
                 console.print("\n[bold red]Safety Concerns:[/]")
                 for concern in safety_concerns:
                     console.print(f"  • {concern}")
 
         # Show command components
-        components = result.components
+        components = selected_components
         if components:
             console.print("\n[bold]Command Components:[/]")
             for component in components:
-                console.print(
-                    f"  • [bold]{component['part']}[/]: {component['description']}"
-                )
+                try:
+                    part = (
+                        component["part"]
+                        if isinstance(component, dict)
+                        else getattr(component, "part", "")
+                    )
+                    desc = (
+                        component["description"]
+                        if isinstance(component, dict)
+                        else getattr(component, "description", "")
+                    )
+                    console.print(f"  • [bold]{part}[/]: {desc}")
+                except Exception:
+                    console.print(f"  • {component}")
 
         # Show alternatives if available
         alternatives = getattr(result, "alternatives", [])
@@ -905,7 +1121,7 @@ def process_translation(
         else:
             execute = typer.confirm("Execute this command?", default=False)
 
-        if execute:
+        if execute or yes_flag:
             console.print("\n[bold]Executing command:[/]")
 
             # Create shell manager

@@ -215,6 +215,83 @@ class OpenAIClient:
             logger.error(f"Unexpected error: {e}")
             raise ValueError(f"Unexpected error during command translation: {e}") from e
 
+    async def get_command_options(
+        self,
+        natural_language: str,
+        system_info: Dict[str, Any],
+        num_options: int = 4,
+    ) -> List[CommandTranslationResult]:
+        """
+        Ask the model for multiple alternative command options with explanations,
+        components, expected outcome, and a coarse safety flag.
+        """
+        await self._handle_rate_limit()
+        try:
+            # Build concise, wrapped system message to satisfy line-length checks
+            schema_lines = [
+                "You are CommandRex, an expert in translating natural language "
+                "into terminal commands.",
+                f"Return BETWEEN 2 and {num_options} options best suited to the "
+                "user's OS/shell.",
+                "Each option must include ONLY: command, description, and components.",
+                "IMPORTANT: Respond as strict JSON with this structure:",
+                "{",
+                '  "options": [',
+                "    {",
+                '      "command": "string",',
+                '      "description": "string",',
+                '      "components": [',
+                '        { "part": "token", "description": "what it does",',
+                '          "type": "command|subcommand|flag|argument|operator|pipe|'
+                'redirection|other" }',
+                "      ]",
+                "    }",
+                "  ]",
+                "}",
+            ]
+            messages = [
+                {
+                    "role": "system",
+                    "content": "\n".join(schema_lines),
+                },
+                {"role": "system", "content": f"System information: {system_info}"},
+                {"role": "user", "content": natural_language},
+            ]
+
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                response_format={"type": "json_object"},
+            )
+            import json
+
+            payload = json.loads(response.choices[0].message.content or "{}")
+            raw_options = payload.get("options", [])
+            results: List[CommandTranslationResult] = []
+            for opt in raw_options:
+                cmd = opt.get("command", "")
+                desc = opt.get("description", "")
+                components = opt.get("components", []) or []
+                # Map to CommandTranslationResult so callers can reuse render paths
+                result = CommandTranslationResult(
+                    command=cmd,
+                    explanation=desc,
+                    safety_assessment={"risk_level": "unknown", "concerns": []},
+                    components=components,
+                    is_dangerous=False,
+                    alternatives=None,
+                )
+                results.append(result)
+
+            # Fallback: if model returns nothing, degrade to single translate
+            if not results:
+                single = await self.translate_to_command(natural_language, system_info)
+                results = [single]
+            return results
+        except Exception as e:
+            logger.error(f"Error getting command options: {e}")
+            raise ValueError(f"Error getting command options: {e}") from e
+
     async def explain_command(self, command: str) -> Dict[str, Any]:
         """
         Generate an explanation for a given command.
