@@ -66,6 +66,16 @@ poetry install
 
 > **Note:** Poetry is a build and dependency management tool, not a runtime dependency. It should be installed separately on your system before using `poetry install`.
 
+## Python Version Compatibility
+
+CommandRex supports Python 3.10 and above with no upper version limit:
+
+- **Minimum Version**: Python 3.10
+- **Tested Versions**: Python 3.10, 3.11, 3.12, 3.13
+- **Future Compatibility**: No upper bound - works with future Python releases
+
+The project uses modern Python features available in 3.10+ and follows semantic versioning for dependency management.
+
 ## Usage
 
 CommandRex can be invoked using either `commandrex` or `python -m commandrex` followed by a command (run, translate, explain) and options.
