@@ -36,6 +36,7 @@ class Settings:
             "max_history": 100,
             "show_command_components": True,
             "syntax_highlighting": True,
+            "show_welcome_screen": True,
         },
         "commands": {
             "confirm_dangerous": True,

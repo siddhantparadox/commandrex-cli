@@ -20,6 +20,7 @@ from commandrex.config import api_manager, settings
 from commandrex.executor import platform_utils, shell_manager
 from commandrex.translator import openai_client, prompt_builder
 from commandrex.utils import security
+from commandrex.utils.welcome_screen import display_welcome_screen
 
 # Create Typer app
 app = typer.Typer(
@@ -645,6 +646,10 @@ def run(
     else:
         if not check_api_key():
             raise typer.Exit(1)
+
+    # Display welcome screen for interactive mode (only when no direct query/translate)
+    if not query and not translate_arg:
+        display_welcome_screen(console)
 
     # Show welcome message
     console.print(
