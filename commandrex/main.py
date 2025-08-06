@@ -417,14 +417,36 @@ def translate(
         except Exception:
             _interactive_selector = None  # type: ignore
 
-        with console.status("[bold green]Generating options...[/]", spinner="dots"):
+        # Universal ASCII animation while generating options
+        try:
+            from commandrex.ui.animations.universal import (  # noqa: N813
+                AnimationRunner,
+            )
+
+            _animation_runner = AnimationRunner
+        except Exception:
+            _animation_runner = None  # type: ignore
+
+        if _animation_runner:
             try:
-                options_results = asyncio.run(
-                    client.get_command_options(query_text, system_context)
+                runner = _animation_runner(use_inline=True, update_interval=0.1)
+                options_results = runner.run_sync(
+                    lambda: asyncio.run(
+                        client.get_command_options(query_text, system_context)
+                    )
                 )
             except Exception as e:
                 console.print(f"[bold red]Error:[/] {str(e)}")
                 raise typer.Exit(1) from e
+        else:
+            with console.status("[bold green]Generating options...[/]", spinner="dots"):
+                try:
+                    options_results = asyncio.run(
+                        client.get_command_options(query_text, system_context)
+                    )
+                except Exception as e:
+                    console.print(f"[bold red]Error:[/] {str(e)}")
+                    raise typer.Exit(1) from e
 
         # Map results into CommandOption objects (command, explanation, components)
         from commandrex.models.command_models import CommandComponent, CommandOption
@@ -505,16 +527,38 @@ def translate(
             selected_components = single.components
             selected_safety = single.safety_assessment
     else:
-        # Show thinking animation
-        with console.status("[bold green]Thinking...[/]", spinner="dots"):
+        # Universal ASCII animation while translating
+        try:
+            from commandrex.ui.animations.universal import (  # noqa: N813
+                AnimationRunner,
+            )
+
+            _animation_runner = AnimationRunner
+        except Exception:
+            _animation_runner = None  # type: ignore
+
+        if _animation_runner:
             try:
-                # Run in event loop
-                result = asyncio.run(
-                    client.translate_to_command(query_text, system_context)
+                runner = _animation_runner(use_inline=True, update_interval=0.1)
+                # Run async translate with animation
+                result = runner.run_sync(
+                    lambda: asyncio.run(
+                        client.translate_to_command(query_text, system_context)
+                    )
                 )
             except Exception as e:
                 console.print(f"[bold red]Error:[/] {str(e)}")
                 raise typer.Exit(1) from e
+        else:
+            # Fallback to simple status spinner if animation module unavailable
+            with console.status("[bold green]Thinking...[/]", spinner="dots"):
+                try:
+                    result = asyncio.run(
+                        client.translate_to_command(query_text, system_context)
+                    )
+                except Exception as e:
+                    console.print(f"[bold red]Error:[/] {str(e)}")
+                    raise typer.Exit(1) from e
 
         # Display the result
         command = result.command
@@ -990,7 +1034,23 @@ def process_translation(
         yes_flag (bool): Whether to skip confirmation prompts
     """
     # Process the input
-    console.print("[bold green]Translating...[/]")
+    # Emit deterministic status for UX and tests
+    console.print("Translating...")
+    # Start universal ASCII animation banner
+    try:
+        from commandrex.ui.animations.universal import (  # noqa: N813
+            AnimationRunner,
+        )
+
+        _animation_runner = AnimationRunner
+    except Exception:
+        _animation_runner = None  # type: ignore
+    if _animation_runner:
+        _anim_runner = _animation_runner(use_inline=True, update_interval=0.1)
+        _anim_runner.animation.start()
+    else:
+        # Keep a readable fallback message when animation is unavailable
+        console.print("[bold green]Translating...[/]")
 
     # Create OpenAI client
     client = openai_client.OpenAIClient(
@@ -1006,7 +1066,15 @@ def process_translation(
     # Translate the command
     try:
         if use_multi_select:
-            options = asyncio.run(client.get_command_options(query, system_context))
+            # Wrap option generation with animation if available
+            if _animation_runner:
+                options = _anim_runner.run_sync(
+                    lambda: asyncio.run(
+                        client.get_command_options(query, system_context)
+                    )
+                )
+            else:
+                options = asyncio.run(client.get_command_options(query, system_context))
             from commandrex.models.command_models import CommandComponent, CommandOption
             from commandrex.ui.command_selector import (  # noqa: N813
                 InteractiveCommandSelector as _interactive_selector,
@@ -1041,6 +1109,9 @@ def process_translation(
                 )
             chosen = None
             if mapped:
+                # Stop animation before interactive UI
+                if _animation_runner:
+                    _anim_runner.animation.stop()
                 selector = _interactive_selector(console=console)
                 chosen = selector.select(mapped)
             if chosen:
@@ -1074,8 +1145,15 @@ def process_translation(
                 console.print("[yellow]Selection cancelled.[/]")
                 return
         else:
-            # Run in event loop
-            result = asyncio.run(client.translate_to_command(query, system_context))
+            # Run translation with animation if available
+            if _animation_runner:
+                result = _anim_runner.run_sync(
+                    lambda: asyncio.run(
+                        client.translate_to_command(query, system_context)
+                    )
+                )
+            else:
+                result = asyncio.run(client.translate_to_command(query, system_context))
             command = result.command
             explanation = result.explanation
             is_dangerous = result.is_dangerous
@@ -1190,6 +1268,13 @@ def process_translation(
 
     except Exception as e:
         console.print(f"[bold red]Error during translation:[/] {str(e)}")
+    finally:
+        # Ensure animation is stopped
+        try:
+            if _animation_runner:
+                _anim_runner.animation.stop()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
