@@ -372,6 +372,11 @@ def translate(
         "--multi-select",
         help="Present multiple command options to choose from before executing.",
     ),
+    no_strict_validation: bool = typer.Option(
+        False,
+        "--no-strict-validation",
+        help="Disable strict environment validation for this translation.",
+    ),
 ) -> None:
     """
     Translate natural language to a shell command.
@@ -400,6 +405,12 @@ def translate(
 
     # Create OpenAI client
     client = openai_client.OpenAIClient(api_key=api_key, model=model)
+
+    # Apply per-invocation toggle for strict validation
+    if no_strict_validation:
+        from commandrex.config.settings import settings as _settings
+
+        _settings.set("validation", "strict_mode", False)
 
     # Create prompt builder
     pb = prompt_builder.PromptBuilder()
@@ -812,6 +823,11 @@ def run(
         "-t",
         help="Directly translate a natural language query without interactive mode.",
     ),
+    no_strict_validation: bool = typer.Option(
+        False,
+        "--no-strict-validation",
+        help="Disable strict environment validation for this session.",
+    ),
 ) -> None:
     """
     Start the CommandRex terminal interface.
@@ -924,6 +940,10 @@ def run(
     else:
         if not check_api_key():
             raise typer.Exit(1)
+
+    # Apply per-invocation toggle for strict validation (session-wide)
+    if no_strict_validation:
+        settings.settings.set("validation", "strict_mode", False)
 
     # Display welcome screen for interactive mode (only when no direct query/translate)
     if not query and not translate_arg:

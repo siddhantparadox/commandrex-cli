@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 # Import from our own modules
 from commandrex.config import api_manager
+from commandrex.config.settings import settings
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -299,36 +300,72 @@ class OpenAIClient:
                 is_dangerous = response_data.get("is_dangerous", False)
                 alternatives = response_data.get("alternatives", [])
 
-                # Post-generation validation (phase 1 lite):
-                # Basic checks for forbidden tokens and path separators.
-                issues: List[str] = []
-                shell_rules = strict_rules.get(shell_key) if rules else None
-                if shell_rules:
-                    # Forbidden tokens
-                    for fbd in shell_rules["forbidden"]:
-                        # simple token existence check
-                        if f"{fbd} " in command or command.lower().startswith(fbd):
-                            issues.append(f"Forbidden command for {shell_key}: {fbd}")
+                # Post-generation validation (Phase 1 strict):
+                # Enforce environment-aware validation and reject incompatible commands.
+                # Respect settings toggles for strictness and suggestions.
+                strict_mode = settings.get("validation", "strict_mode", True)
+                suggest_alts = settings.get("validation", "suggest_alternatives", True)
+                try:
+                    from commandrex.validator.command_validator import (  # noqa: E402
+                        CommandValidator,
+                    )
 
-                    # Path separator check (only if command seems to contain a path)
-                    wrong_sep = shell_rules["wrong_sep"]
-                    right_sep = shell_rules["path_sep"]
-                    if wrong_sep in command and right_sep not in command:
-                        issues.append(
-                            f"Wrong path separator '{wrong_sep}' for shell {shell_key}"
+                    validator = CommandValidator()
+                    # Use detected shell/os where possible
+                    os_name_val = os_name
+                    shell_name_val = shell_key
+                    validation = validator.validate_for_environment(
+                        command, shell_override=shell_name_val, os_override=os_name_val
+                    )
+                    if not validation.is_valid:
+                        issues_text = "; ".join(validation.reasons)
+                        logger.error(
+                            "Rejected command due to environment validation: %s",
+                            issues_text,
                         )
-
-                if issues:
-                    logger.warning(
-                        "LLM command did not pass environment validation: %s",
-                        issues,
-                    )
-                    # We do not auto-correct here in phase 1; only surface info.
-                    explanation = (
-                        explanation
-                        + "\nEnvironment validation issues detected: "
-                        + "; ".join(issues)
-                    )
+                        if strict_mode:
+                            raise ValueError(
+                                "Generated command is incompatible with the current "
+                                f"environment: {issues_text}"
+                            )
+                        # Non-strict mode: keep the command but annotate explanation
+                        if suggest_alts:
+                            explanation = (
+                                f"{explanation}\nEnvironment validation issues: "
+                                + issues_text
+                            )
+                except ImportError:
+                    # If validator module is unavailable, fall back to previous
+                    # lite checks while keeping lines within E501 limits.
+                    issues: List[str] = []
+                    shell_rules = strict_rules.get(shell_key) if rules else None
+                    if shell_rules:
+                        for fbd in shell_rules["forbidden"]:
+                            starts_forbidden = command.lower().startswith(fbd)
+                            has_token = f"{fbd} " in command
+                            if has_token or starts_forbidden:
+                                issues.append(
+                                    f"Forbidden command for {shell_key}: {fbd}"
+                                )
+                        wrong_sep = shell_rules["wrong_sep"]
+                        right_sep = shell_rules["path_sep"]
+                        wrong_only = wrong_sep in command and right_sep not in command
+                        if wrong_only:
+                            issues.append(
+                                "Wrong path separator "
+                                f"'{wrong_sep}' for shell {shell_key}"
+                            )
+                    if issues:
+                        logger.warning(
+                            "LLM command did not pass environment validation "
+                            "(fallback): %s",
+                            issues,
+                        )
+                    if issues and suggest_alts:
+                        explanation = (
+                            f"{explanation}\nEnvironment validation issues detected: "
+                            + "; ".join(issues)
+                        )
 
                 return CommandTranslationResult(
                     command=command,

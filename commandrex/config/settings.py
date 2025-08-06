@@ -50,6 +50,14 @@ class Settings:
             "allow_file_operations": True,
             "dangerous_commands_require_confirmation": True,
         },
+        "validation": {
+            # Strictly reject commands incompatible with OS/shell
+            "strict_mode": True,
+            # Phase 2 placeholder: attempt auto transform of incompatible commands
+            "auto_transform": False,
+            # Offer alternative compatible commands when strict_mode blocks
+            "suggest_alternatives": True,
+        },
         "advanced": {
             "debug_mode": False,
             "log_level": "INFO",
@@ -69,6 +77,9 @@ class Settings:
         # Load settings from file if it exists
         if self.config_file.exists():
             self.load()
+
+        # Apply environment overrides after file load
+        self._apply_env_overrides()
 
     def _get_config_dir(self) -> Path:
         """
@@ -187,6 +198,39 @@ class Settings:
         except Exception as e:
             print(f"Error setting {section}.{key}: {e}")
             return False
+
+    def _apply_env_overrides(self) -> None:
+        """
+        Apply environment variable overrides for selected settings.
+
+        Supported overrides:
+          - COMMANDREX_VALIDATION_STRICT_MODE -> validation.strict_mode (bool)
+          - COMMANDREX_VALIDATION_AUTO_TRANSFORM -> validation.auto_transform (bool)
+          - COMMANDREX_VALIDATION_SUGGEST_ALTERNATIVES
+            -> validation.suggest_alternatives (bool)
+        """
+
+        def _env_bool(name: str, default: Optional[bool]) -> Optional[bool]:
+            val = os.environ.get(name)
+            if val is None:
+                return default
+            val_lower = val.strip().lower()
+            if val_lower in {"1", "true", "yes", "on"}:
+                return True
+            if val_lower in {"0", "false", "no", "off"}:
+                return False
+            return default
+
+        strict = _env_bool("COMMANDREX_VALIDATION_STRICT_MODE", None)
+        auto_tf = _env_bool("COMMANDREX_VALIDATION_AUTO_TRANSFORM", None)
+        suggest = _env_bool("COMMANDREX_VALIDATION_SUGGEST_ALTERNATIVES", None)
+
+        if strict is not None:
+            self.set("validation", "strict_mode", strict)
+        if auto_tf is not None:
+            self.set("validation", "auto_transform", auto_tf)
+        if suggest is not None:
+            self.set("validation", "suggest_alternatives", suggest)
 
     def get_all(self) -> Dict[str, Dict[str, Any]]:
         """

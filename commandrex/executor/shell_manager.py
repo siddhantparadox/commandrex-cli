@@ -12,6 +12,7 @@ import subprocess
 import threading
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from commandrex.config.settings import settings
 from commandrex.executor import platform_utils
 from commandrex.executor.command_parser import CommandParser
 
@@ -294,13 +295,24 @@ class ShellManager:
 
             except asyncio.TimeoutError:
                 # Terminate the process if it times out
-                process.terminate()
+                import inspect
+
+                term = getattr(process, "terminate", None)
+                if callable(term) and inspect.iscoroutinefunction(term):
+                    await term()
+                elif callable(term):
+                    term()
+
                 try:
                     # Give it a chance to terminate gracefully
                     await asyncio.wait_for(process.wait(), 2.0)
                 except asyncio.TimeoutError:
                     # Force kill if it doesn't terminate
-                    process.kill()
+                    kill = getattr(process, "kill", None)
+                    if callable(kill) and inspect.iscoroutinefunction(kill):
+                        await kill()
+                    elif callable(kill):
+                        kill()
                     await process.wait()
 
                 terminated = True
@@ -407,7 +419,7 @@ class ShellManager:
         validation_info = {}
 
         if validate:
-            # Validate the command
+            # Validate the command (syntactic/danger checks from parser)
             validation_info = self.command_parser.validate_command(command)
 
             if not validation_info["is_valid"]:
@@ -417,6 +429,39 @@ class ShellManager:
             if validation_info["is_dangerous"]:
                 reasons = ", ".join(validation_info["reasons"])
                 raise ValueError(f"Dangerous command: {reasons}")
+
+            # Environment-aware strict validation: ensure command matches OS/shell
+            try:
+                from commandrex.validator.command_validator import (
+                    CommandValidator,  # noqa: E402
+                )
+
+                env_validator = CommandValidator()
+                env = env_validator.detect_environment()
+                shell_name = env.get("shell", "")
+                os_name = env.get("os", "")
+                env_result = env_validator.validate_for_environment(
+                    command, shell_override=shell_name, os_override=os_name
+                )
+                if not env_result.is_valid:
+                    reasons = "; ".join(env_result.reasons)
+                    msg = (
+                        "Incompatible command for environment "
+                        f"(OS={os_name}, shell={shell_name}): {reasons}"
+                    )
+                    # Honor settings toggle: strict_mode controls hard failure
+                    strict_mode = settings.get("validation", "strict_mode", True)
+                    suggest_alts = settings.get(
+                        "validation", "suggest_alternatives", True
+                    )
+                    if strict_mode:
+                        raise ValueError(msg)
+                    # Non-strict: attach reasons to validation_info for UI consumption
+                    if suggest_alts:
+                        validation_info["env_issues"] = env_result.reasons
+            except ImportError:
+                # If validator is unavailable, skip strict env validation
+                pass
 
         # Execute the command
         result = await self.execute_command(

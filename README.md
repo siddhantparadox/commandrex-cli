@@ -84,6 +84,7 @@ CommandRex can be invoked using either `commandrex` or `python -m commandrex` fo
 For example:
 - `commandrex run` - Start interactive mode with multi-command selection
 - `commandrex translate "query"` - Translate a natural language query
+- `commandrex translate "query" --no-strict-validation` - Translate without strict env validation (per-invocation)
 - `commandrex explain "command"` - Explain a shell command
 
 ### Interactive Mode
@@ -100,6 +101,7 @@ This launches CommandRex in interactive mode with a welcome screen displaying "C
 
 **Options:**
 - `--debug` or `-d`: Enable debug mode with detailed system information
+- `--no-strict-validation`: Disable strict environment validation for this run/translation
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this session
 - `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
 - `--translate "query"` or `-t "query"`: Directly translate a query without entering interactive mode
@@ -122,6 +124,7 @@ commandrex translate "list all files in the current directory including hidden o
 - `--multi-select`: Present multiple command options to choose from interactively
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this translation
 - `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
+- `--no-strict-validation`: Disable strict validation for this translation (shows guidance instead of blocking)
 
 **Examples:**
 ```bash
