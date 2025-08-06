@@ -22,6 +22,9 @@ from commandrex.config import api_manager, settings
 from commandrex.executor import platform_utils, shell_manager
 from commandrex.translator import openai_client, prompt_builder
 from commandrex.utils import security
+
+# Import logging utilities to control verbosity based on --debug
+from commandrex.utils.logging import setup_logging
 from commandrex.utils.welcome_screen import display_welcome_screen
 
 # Create Typer app
@@ -841,6 +844,33 @@ def run(
 
     # Set debug mode in settings
     settings.settings.set("advanced", "debug_mode", debug)
+
+    # Configure logging level based on debug flag
+    # - Default logging now starts at WARNING (quiet)
+    # - If debug enabled, bump to DEBUG and optionally enable file logging
+    if debug:
+        # Determine log file path: prefer explicit advanced.log_file,
+        # otherwise use default path when debug mode is on.
+        explicit_log_file = settings.settings.get("advanced", "log_file", None)
+        default_debug_log = (
+            str(settings.settings.get_log_file_path())
+            if settings.settings.get("advanced", "debug_mode", False)
+            else None
+        )
+
+        # Re-initialize logging for this session with DEBUG level
+        setup_logging(
+            log_level="DEBUG",
+            log_file=explicit_log_file or default_debug_log,
+            use_colors=True,
+        )
+    else:
+        # Ensure non-debug sessions remain quiet (WARNING)
+        setup_logging(
+            log_level="WARNING",
+            log_file=settings.settings.get("advanced", "log_file", None),
+            use_colors=True,
+        )
 
     # Use provided API key or get from keyring
     if api_key:

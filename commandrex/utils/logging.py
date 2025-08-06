@@ -86,18 +86,26 @@ def setup_logging(
     Returns:
         logging.Logger: Configured logger.
     """
-    # Get the root logger
+    # Get the package root logger
     logger = logging.getLogger("commandrex")
 
-    # Clear any existing handlers
+    # Clear any existing handlers to avoid duplicate logs
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
 
-    # Set the log level
-    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+    # Resolve requested level; tests expect INFO default and INFO on invalid
+    requested = (log_level or "INFO").upper()
+    valid_names = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+    if requested not in valid_names:
+        requested = "INFO"
+    numeric_level = getattr(logging, requested, logging.INFO)
     logger.setLevel(numeric_level)
 
-    # Create console handler
+    # Ensure third-party loggers don't spam unless explicitly elevated by caller
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # Console handler (respects chosen level)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(numeric_level)
 
@@ -113,7 +121,7 @@ def setup_logging(
     # Add console handler to logger
     logger.addHandler(console_handler)
 
-    # Add file handler if log file is specified
+    # File handler (always useful for debugging; uses same level)
     if log_file:
         # Ensure the directory exists
         log_path = Path(log_file)
@@ -130,8 +138,8 @@ def setup_logging(
         # Add file handler to logger
         logger.addHandler(file_handler)
 
-    # Log the initialization
-    logger.debug(f"Logging initialized at level {log_level}")
+    # Log the initialization (will only show if level permits)
+    logger.debug(f"Logging initialized at level {requested}")
 
     return logger
 
@@ -152,19 +160,30 @@ def get_logger(name: str = None) -> logging.Logger:
         return logging.getLogger("commandrex")
 
 
-# Initialize logging based on settings
-def initialize_logging() -> logging.Logger:
+# Initialize logging based on settings.
+# Keep runtime quiet-by-default UX via main.py, while matching unit test expectation
+# that initialize_logging queries settings with default "INFO".
+def initialize_logging(default_level: str = "INFO") -> logging.Logger:
     """
     Initialize logging based on application settings.
 
     Returns:
         logging.Logger: Configured logger.
     """
-    log_level = settings.get("advanced", "log_level", "INFO")
+    # Pull configured level; if not set, use provided default "INFO"
+    configured_level = settings.get("advanced", "log_level", default_level)
     log_file_path = settings.get_log_file_path()
 
-    return setup_logging(log_level=log_level, log_file=log_file_path, use_colors=True)
+    # Note: main.run() reconfigures per session:
+    # - Non-debug: WARNING
+    # - Debug: DEBUG
+    # This preserves quiet default UX without changing test expectations here.
+    return setup_logging(
+        log_level=configured_level,
+        log_file=log_file_path,
+        use_colors=True,
+    )
 
 
-# Global logger instance
+# Global logger instance (safe, quiet by default)
 logger = initialize_logging()
