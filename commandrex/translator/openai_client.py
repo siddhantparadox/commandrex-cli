@@ -108,36 +108,150 @@ class OpenAIClient:
         await self._handle_rate_limit()
 
         try:
-            # This is a simplified version - in a real implementation,
-            # we would use a more sophisticated prompt with proper formatting
+            # Build strict system message with environment constraints to ensure
+            # only commands valid for the detected OS/shell are generated.
+            from commandrex.executor import platform_utils
+
+            # Extract OS/shell info, with safe defaults
+            platform_info = system_info or {}
+            os_name = (
+                platform_info.get("os_name") or ""
+            ).lower() or platform_utils.get_platform_info().get("os_name", "Unknown")
+            shell_info = platform_utils.detect_shell()
+            detected_shell = (shell_info[0] if shell_info else "") or platform_info.get(
+                "shell_name", ""
+            )
+
+            # Derive strict rules similar to PromptBuilder.STRICT_ENVIRONMENT_RULES
+            # to harden the system prompt at the client layer as well.
+            strict_rules = {
+                "cmd": {
+                    "forbidden": [
+                        "ls",
+                        "grep",
+                        "cat",
+                        "chmod",
+                        "chown",
+                        "find",
+                        "which",
+                        "man",
+                        "sudo",
+                        "tar",
+                    ],
+                    "path_sep": "\\\\",
+                    "wrong_sep": "/",
+                },
+                "powershell": {
+                    "forbidden": [
+                        "grep",
+                        "cat",
+                        "sed",
+                        "awk",
+                        "chmod",
+                        "chown",
+                        "sudo",
+                    ],
+                    "path_sep": "\\\\",
+                    "wrong_sep": "/",
+                },
+                "pwsh": {
+                    "forbidden": [
+                        "grep",
+                        "cat",
+                        "sed",
+                        "awk",
+                        "chmod",
+                        "chown",
+                        "sudo",
+                    ],
+                    "path_sep": "\\\\",
+                    "wrong_sep": "/",
+                },
+                "bash": {
+                    "forbidden": [
+                        "dir",
+                        "type ",
+                        "findstr",
+                        "cls",
+                        "powershell",
+                        "pwsh",
+                    ],
+                    "path_sep": "/",
+                    "wrong_sep": "\\\\",
+                },
+                "zsh": {
+                    "forbidden": [
+                        "dir",
+                        "type ",
+                        "findstr",
+                        "cls",
+                        "powershell",
+                        "pwsh",
+                    ],
+                    "path_sep": "/",
+                    "wrong_sep": "\\\\",
+                },
+                "fish": {
+                    "forbidden": [
+                        "dir",
+                        "type ",
+                        "findstr",
+                        "cls",
+                        "powershell",
+                        "pwsh",
+                    ],
+                    "path_sep": "/",
+                    "wrong_sep": "\\\\",
+                },
+            }
+
+            shell_key = (detected_shell or "").lower()
+            rules = strict_rules.get(shell_key, None)
+
+            # Core schema lines (kept compact to satisfy E501 elsewhere)
+            schema_lines = [
+                "You are CommandRex, an expert in translating natural language into "
+                "terminal commands.",
+                "Return a single command appropriate for the user's OS and shell.",
+                "Respond as strict JSON with this structure:",
+                "{",
+                '  "command": "string",',
+                '  "explanation": "string",',
+                '  "safety_assessment": { "is_safe": true|false, "concerns": [], '
+                '"risk_level": "none|low|medium|high" },',
+                '  "components": [ { "part": "token", "description": '
+                '"what it does" } ],',
+                '  "is_dangerous": true|false,',
+                '  "alternatives": ["alt1", "alt2"]',
+                "}",
+            ]
+
+            # Strict environment constraints
+            strict_lines = []
+            if rules:
+                forbidden_list = ", ".join(rules["forbidden"])
+                strict_lines.append("CRITICAL ENVIRONMENT CONSTRAINTS:")
+                strict_lines.append(f"- Detected OS: {os_name}")
+                strict_lines.append(f"- Detected Shell: {shell_key}")
+                strict_lines.append(f"- FORBIDDEN commands: {forbidden_list}")
+                strict_lines.append(
+                    f"- REQUIRED path separator: '{rules['path_sep']}' "
+                    f"(never use '{rules['wrong_sep']}')"
+                )
+                strict_lines.append(
+                    "- NEVER mix syntax from other shells. Do not use Unix commands in "
+                    "Windows shells or Windows commands in Unix shells."
+                )
+                strict_lines.append(
+                    "- If a command is not available in this environment, choose a "
+                    "functionally equivalent command that IS available."
+                )
+
             messages = [
                 {
                     "role": "system",
-                    "content": (
-                        "You are CommandRex, an expert in translating natural language "
-                        "into "
-                        "terminal commands. Your task is to convert user requests into "
-                        "the most "
-                        "appropriate command for their system. Provide the command, an "
-                        "explanation, "
-                        "and a safety assessment.\n\n"
-                        "IMPORTANT: You must respond in JSON format with the following "
-                        "structure:\n"
-                        "{\n"
-                        '  "command": "the command to execute",\n'
-                        '  "explanation": "explanation of what the command does",\n'
-                        '  "safety_assessment": {\n'
-                        '    "is_safe": true/false,\n'
-                        '    "concerns": ["list", "of", "concerns"],\n'
-                        '    "risk_level": "low/medium/high"\n'
-                        "  },\n"
-                        '  "components": [\n'
-                        '    {"part": "command_part", "description": "what this part '
-                        'does"}\n'
-                        "  ],\n"
-                        '  "is_dangerous": true/false,\n'
-                        '  "alternatives": ["alternative1", "alternative2"]\n'
-                        "}\n"
+                    "content": "\n".join(
+                        schema_lines + ([""] + strict_lines if strict_lines else [])
                     ),
                 },
                 {"role": "system", "content": f"System information: {system_info}"},
@@ -184,6 +298,37 @@ class OpenAIClient:
                 components = response_data.get("components", [])
                 is_dangerous = response_data.get("is_dangerous", False)
                 alternatives = response_data.get("alternatives", [])
+
+                # Post-generation validation (phase 1 lite):
+                # Basic checks for forbidden tokens and path separators.
+                issues: List[str] = []
+                shell_rules = strict_rules.get(shell_key) if rules else None
+                if shell_rules:
+                    # Forbidden tokens
+                    for fbd in shell_rules["forbidden"]:
+                        # simple token existence check
+                        if f"{fbd} " in command or command.lower().startswith(fbd):
+                            issues.append(f"Forbidden command for {shell_key}: {fbd}")
+
+                    # Path separator check (only if command seems to contain a path)
+                    wrong_sep = shell_rules["wrong_sep"]
+                    right_sep = shell_rules["path_sep"]
+                    if wrong_sep in command and right_sep not in command:
+                        issues.append(
+                            f"Wrong path separator '{wrong_sep}' for shell {shell_key}"
+                        )
+
+                if issues:
+                    logger.warning(
+                        "LLM command did not pass environment validation: %s",
+                        issues,
+                    )
+                    # We do not auto-correct here in phase 1; only surface info.
+                    explanation = (
+                        explanation
+                        + "\nEnvironment validation issues detected: "
+                        + "; ".join(issues)
+                    )
 
                 return CommandTranslationResult(
                     command=command,

@@ -84,6 +84,125 @@ class PromptBuilder:
             }
         }
 
+    # Strict environment rules to prevent cross-shell/OS mistakes
+    STRICT_ENVIRONMENT_RULES = {
+        "cmd": {
+            "forbidden_commands": [
+                "ls",
+                "grep",
+                "cat",
+                "chmod",
+                "chown",
+                "find",
+                "which",
+                "man",
+                "sudo",
+                "tar",
+            ],
+            "required_syntax": {
+                "list_files": "dir",
+                "search_text": "findstr",
+                "view_file": "type",
+                "path_separator": "\\",
+            },
+            "wrong_separator": "/",
+        },
+        "powershell": {
+            # Note: PowerShell has aliases for ls/cat/grep, but require explicit cmdlets
+            "forbidden_commands": [
+                "grep",
+                "cat",
+                "sed",
+                "awk",
+                "chmod",
+                "chown",
+                "rm ",
+                "mv ",
+                "cp ",
+                "sudo",
+            ],
+            "required_syntax": {
+                "list_files": "Get-ChildItem",
+                "search_text": "Select-String",
+                "view_file": "Get-Content",
+                "path_separator": "\\",
+            },
+            "wrong_separator": "/",
+        },
+        "pwsh": {
+            "forbidden_commands": [
+                "grep",
+                "cat",
+                "sed",
+                "awk",
+                "chmod",
+                "chown",
+                "rm ",
+                "mv ",
+                "cp ",
+                "sudo",
+            ],
+            "required_syntax": {
+                "list_files": "Get-ChildItem",
+                "search_text": "Select-String",
+                "view_file": "Get-Content",
+                "path_separator": "\\",
+            },
+            "wrong_separator": "/",
+        },
+        "bash": {
+            "forbidden_commands": [
+                "dir",
+                "type ",
+                "findstr",
+                "cls",
+                "powershell",
+                "pwsh",
+            ],
+            "required_syntax": {
+                "list_files": "ls",
+                "search_text": "grep",
+                "view_file": "cat",
+                "path_separator": "/",
+            },
+            "wrong_separator": "\\",
+        },
+        "zsh": {
+            "forbidden_commands": [
+                "dir",
+                "type ",
+                "findstr",
+                "cls",
+                "powershell",
+                "pwsh",
+            ],
+            "required_syntax": {
+                "list_files": "ls",
+                "search_text": "grep",
+                "view_file": "cat",
+                "path_separator": "/",
+            },
+            "wrong_separator": "\\",
+        },
+        "fish": {
+            "forbidden_commands": [
+                "dir",
+                "type ",
+                "findstr",
+                "cls",
+                "powershell",
+                "pwsh",
+            ],
+            "required_syntax": {
+                "list_files": "ls",
+                "search_text": "grep",
+                "view_file": "cat",
+                "path_separator": "/",
+            },
+            "wrong_separator": "\\",
+        },
+    }
+
     def _get_platform_prompt(self) -> str:
         """
         Get the appropriate platform-specific prompt.
@@ -677,6 +796,34 @@ class PromptBuilder:
             "Use shell-specific syntax and commands that are "
             "optimal for the user's shell."
         )
+
+        # Add strict environment constraints to prevent incorrect commands
+        shell_info_for_rules = platform_utils.detect_shell()
+        if shell_info_for_rules:
+            detected_shell = (shell_info_for_rules[0] or "").lower()
+            os_name = platform_utils.get_platform_info().get("os_name", "Unknown")
+            rules = self.STRICT_ENVIRONMENT_RULES.get(detected_shell)
+            if rules:
+                forbidden = ", ".join(rules.get("forbidden_commands", []))
+                path_sep = rules.get("required_syntax", {}).get("path_separator", "/")
+                wrong_sep = rules.get("wrong_separator", "\\")
+                # Keep lines under E501 by splitting strings
+                system_prompt += "\n\nCRITICAL ENVIRONMENT CONSTRAINTS:\n"
+                system_prompt += f"- Detected Shell: {detected_shell}\n"
+                system_prompt += f"- Detected OS: {os_name}\n"
+                system_prompt += f"- FORBIDDEN commands: {forbidden}\n"
+                system_prompt += (
+                    f"- REQUIRED path separator: '{path_sep}' "
+                    f"(never use '{wrong_sep}')\n"
+                )
+                system_prompt += (
+                    "- NEVER mix syntax from other shells. Do not use Unix commands "
+                    "in Windows shells or Windows commands in Unix shells.\n"
+                )
+                system_prompt += (
+                    "- If a command is not available in this environment, choose a "
+                    "functionally equivalent command that IS available.\n"
+                )
 
         # Special case for Git Bash on Windows
         shell_info = platform_utils.detect_shell()
