@@ -272,7 +272,7 @@ def temp_config_file():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         config = {
             "api_key": "test-key",
-            "model": "gpt-4.1-mini-2025-04-14",
+            "model": "gpt-5-mini-2025-08-07",
             "debug": False,
         }
         json.dump(config, f)

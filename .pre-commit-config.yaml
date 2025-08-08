@@ -5,7 +5,7 @@ repos:
     hooks:
       # Run the linter with fixes
       - id: ruff-check
-        args: [--fix, --unsafe-fixes]
+        args: [--fix, --unsafe-fixes, --ignore=E501]
         types_or: [python, pyi]
       # Run the formatter
       - id: ruff-format

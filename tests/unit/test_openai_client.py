@@ -73,7 +73,7 @@ class TestOpenAIClientInitialization:
         assert (
             client.api_key == "sk-test123456789012345678901234567890123456789012345678"
         )
-        assert client.model == "gpt-4.1-mini-2025-04-14"
+        assert client.model == "gpt-5-mini-2025-08-07"
         assert client.min_request_interval == 0.5
         mock_async_openai.assert_called_once_with(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -750,6 +750,6 @@ class TestOpenAIClientIntegration:
         # Verify the API was called with correct parameters
         mock_client.chat.completions.create.assert_called_once()
         call_args = mock_client.chat.completions.create.call_args
-        assert call_args[1]["model"] == "gpt-4.1-mini-2025-04-14"
+        assert call_args[1]["model"] == "gpt-5-mini-2025-08-07"
         assert call_args[1]["response_format"] == {"type": "json_object"}
         assert len(call_args[1]["messages"]) == 3  # system, system context, user

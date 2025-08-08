@@ -362,7 +362,7 @@ def translate(
         None, "--api-key", help="OpenAI API key (overrides stored key)."
     ),
     model: str = typer.Option(
-        "gpt-4.1-mini-2025-04-14",
+        "gpt-5-mini-2025-08-07",
         "--model",
         "-m",
         help="OpenAI model to use. Find more models at https://platform.openai.com/docs/models",
@@ -696,7 +696,7 @@ def explain(
         None, "--api-key", help="OpenAI API key (overrides stored key)."
     ),
     model: str = typer.Option(
-        "gpt-4.1-mini-2025-04-14",
+        "gpt-5-mini-2025-08-07",
         "--model",
         "-m",
         help="OpenAI model to use. Find more models at https://platform.openai.com/docs/models",
@@ -812,7 +812,7 @@ def run(
         None, "--api-key", help="OpenAI API key (overrides stored key)."
     ),
     model: str = typer.Option(
-        "gpt-4.1-mini-2025-04-14",
+        "gpt-5-mini-2025-08-07",
         "--model",
         "-m",
         help="OpenAI model to use. Find more models at https://platform.openai.com/docs/models",

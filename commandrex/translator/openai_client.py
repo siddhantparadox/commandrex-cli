@@ -42,7 +42,7 @@ class OpenAIClient:
     """
 
     def __init__(
-        self, api_key: Optional[str] = None, model: str = "gpt-4.1-mini-2025-04-14"
+        self, api_key: Optional[str] = None, model: str = "gpt-5-mini-2025-08-07"
     ):
         """
         Initialize the OpenAI client.
@@ -51,7 +51,7 @@ class OpenAIClient:
             api_key (Optional[str]): OpenAI API key. If None, will attempt to
                 retrieve from keyring.
             model (str): The model to use for completions. Defaults to
-                "gpt-4.1-mini-2025-04-14".
+                "gpt-5-mini-2025-08-07".
         """
         self.api_key = api_key or api_manager.get_api_key()
         if not self.api_key:
@@ -266,6 +266,7 @@ class OpenAIClient:
                     messages=messages,
                     stream=True,
                     response_format={"type": "json_object"},
+                    verbosity="low",
                 )
 
                 collected_chunks = []
@@ -283,6 +284,7 @@ class OpenAIClient:
                     model=self.model,
                     messages=messages,
                     response_format={"type": "json_object"},
+                    verbosity="low",
                 )
                 full_response = response.choices[0].message.content
 
@@ -444,6 +446,7 @@ class OpenAIClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
+                verbosity="low",
             )
             import json
 
@@ -519,6 +522,7 @@ class OpenAIClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
+                verbosity="low",
             )
 
             # Parse the response
@@ -581,6 +585,7 @@ class OpenAIClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
+                verbosity="low",
             )
 
             # Parse the response

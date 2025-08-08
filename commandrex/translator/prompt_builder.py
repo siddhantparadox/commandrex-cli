@@ -797,6 +797,15 @@ class PromptBuilder:
             "optimal for the user's shell."
         )
 
+        # Minimal GPT-5 behavioral guidance (kept concise to avoid JSON schema drift)
+        system_prompt += "\n\nBEHAVIORAL GUIDANCE (GPT-5):\n"
+        system_prompt += (
+            "- Keep context gathering minimal; prefer acting over searching.\n"
+            "- Respond strictly with a single JSON object; output no prose outside JSON.\n"
+            "- Calibrate eagerness: avoid unnecessary exploration; stop once a correct command is found.\n"
+            "- If uncertainty remains, include 1-2 reasonable alternatives in the 'alternatives' array.\n"
+        )
+
         # Add strict environment constraints to prevent incorrect commands
         shell_info_for_rules = platform_utils.detect_shell()
         if shell_info_for_rules:

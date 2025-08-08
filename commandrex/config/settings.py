@@ -25,7 +25,7 @@ class Settings:
     # Default settings
     DEFAULT_SETTINGS = {
         "api": {
-            "model": "gpt-4.1-mini-2025-04-14",
+            "model": "gpt-5-mini-2025-08-07",
             "temperature": 0.2,
             "max_tokens": 1000,
             "timeout": 30,

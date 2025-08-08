@@ -103,12 +103,12 @@ This launches CommandRex in interactive mode with a welcome screen displaying "C
 - `--debug` or `-d`: Enable debug mode with detailed system information
 - `--no-strict-validation`: Disable strict environment validation for this run/translation
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this session
-- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-5-mini-2025-08-07)
 - `--translate "query"` or `-t "query"`: Directly translate a query without entering interactive mode
 
 **Example:**
 ```bash
-commandrex run --model gpt-4.1-mini-2025-04-14 --debug
+commandrex run --model gpt-5-mini-2025-08-07 --debug
 ```
 
 ### Command Translation
@@ -123,7 +123,7 @@ commandrex translate "list all files in the current directory including hidden o
 - `--execute` or `-e`: Execute the translated command after showing it
 - `--multi-select`: Present multiple command options to choose from interactively
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this translation
-- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-5-mini-2025-08-07)
 - `--no-strict-validation`: Disable strict validation for this translation (shows guidance instead of blocking)
 
 **Examples:**
@@ -176,7 +176,7 @@ This will provide:
 
 **Options:**
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this explanation
-- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-4.1-mini-2025-04-14)
+- `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-5-mini-2025-08-07)
 
 ### Help System
 
@@ -265,7 +265,7 @@ If a translated command doesn't match your intent:
 1. Try being more specific in your request
 2. Use the multi-select feature to see alternative options
 3. Use the interactive mode to refine your query
-4. Try a different model with `--model gpt-4.1-mini-2025-04-14` for potentially better results
+4. Try a different model with `--model gpt-5-mini-2025-08-07` for potentially better results
 
 **Shell Detection:**
 ```bash
