@@ -266,7 +266,6 @@ class OpenAIClient:
                     messages=messages,
                     stream=True,
                     response_format={"type": "json_object"},
-                    verbosity="low",
                 )
 
                 collected_chunks = []
@@ -284,7 +283,6 @@ class OpenAIClient:
                     model=self.model,
                     messages=messages,
                     response_format={"type": "json_object"},
-                    verbosity="low",
                 )
                 full_response = response.choices[0].message.content
 
@@ -446,7 +444,6 @@ class OpenAIClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
-                verbosity="low",
             )
             import json
 
@@ -522,7 +519,6 @@ class OpenAIClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
-                verbosity="low",
             )
 
             # Parse the response
@@ -585,7 +581,6 @@ class OpenAIClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
-                verbosity="low",
             )
 
             # Parse the response
