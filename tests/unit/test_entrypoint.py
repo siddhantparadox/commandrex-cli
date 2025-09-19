@@ -51,7 +51,7 @@ def test_get_version_default(monkeypatch):
 
     monkeypatch.setattr(importlib.metadata, "version", raise_missing)
 
-    assert get_version() == "0.1.0"
+    assert get_version() == "0.2"
 
 
 def test_cli_version_option_uses_get_version(monkeypatch, runner):

@@ -110,7 +110,7 @@ def get_version() -> str:
     try:
         return importlib.metadata.version("commandrex")
     except importlib.metadata.PackageNotFoundError:
-        return "0.1.0"  # Default during development
+        return "0.2"  # Default during development
 
 
 @app.callback(invoke_without_command=True)
