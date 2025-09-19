@@ -21,6 +21,30 @@ from openai import APIError, RateLimitError
 from commandrex.translator.openai_client import CommandTranslationResult, OpenAIClient
 
 
+class DummyAsyncStream:
+    """Simple async iterator to simulate streaming responses."""
+
+    def __init__(self, chunks):
+        self._chunks = chunks
+
+    def __aiter__(self):  # pragma: no cover - helper for tests only
+        async def iterator():
+            for chunk in self._chunks:
+                yield chunk
+
+        return iterator()
+
+
+def configure_async_openai(mock_async_openai, client_mock):
+    """Configure AsyncOpenAI patch to act as an async context manager."""
+
+    async_context = AsyncMock()
+    async_context.__aenter__.return_value = client_mock
+    async_context.__aexit__.return_value = False
+    mock_async_openai.return_value = async_context
+    return async_context
+
+
 class TestCommandTranslationResult:
     """Test the CommandTranslationResult model."""
 
@@ -75,9 +99,7 @@ class TestOpenAIClientInitialization:
         )
         assert client.model == "gpt-5-mini-2025-08-07"
         assert client.min_request_interval == 0.5
-        mock_async_openai.assert_called_once_with(
-            api_key="sk-test123456789012345678901234567890123456789012345678"
-        )
+        mock_async_openai.assert_not_called()
 
     @patch("commandrex.translator.openai_client.api_manager")
     @patch("commandrex.translator.openai_client.AsyncOpenAI")
@@ -96,6 +118,7 @@ class TestOpenAIClientInitialization:
             client.api_key == "sk-keyring123456789012345678901234567890123456789012345"
         )
         mock_api_manager.get_api_key.assert_called_once()
+        mock_async_openai.assert_not_called()
 
     @patch("commandrex.translator.openai_client.api_manager")
     def test_client_initialization_no_api_key(self, mock_api_manager):
@@ -127,6 +150,7 @@ class TestOpenAIClientInitialization:
         )
 
         assert client.model == "gpt-4"
+        mock_async_openai.assert_not_called()
 
 
 class TestRateLimiting:
@@ -147,6 +171,7 @@ class TestRateLimiting:
             api_key="sk-test123456789012345678901234567890123456789012345678"
         )
         client.last_request_time = 100.0  # Set last request time
+        mock_async_openai.assert_not_called()
 
         await client._handle_rate_limit()
 
@@ -171,6 +196,7 @@ class TestRateLimiting:
             api_key="sk-test123456789012345678901234567890123456789012345678"
         )
         client.last_request_time = 100.0  # More than 0.5 seconds ago
+        mock_async_openai.assert_not_called()
 
         await client._handle_rate_limit()
 
@@ -208,8 +234,11 @@ class TestTranslateToCommand:
         )
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -254,8 +283,11 @@ class TestTranslateToCommand:
                 yield chunk
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_stream())
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -288,8 +320,11 @@ class TestTranslateToCommand:
         mock_response.choices[0].message.content = "invalid json"
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -312,12 +347,15 @@ class TestTranslateToCommand:
         mock_response.request = Mock()
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(
             side_effect=RateLimitError(
                 "Rate limit exceeded", response=mock_response, body=None
             )
         )
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -336,12 +374,15 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         # Create a mock request for APIError
         mock_request = Mock()
         mock_client.chat.completions.create = AsyncMock(
             side_effect=APIError("API error", request=mock_request, body=None)
         )
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -360,10 +401,13 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(
             side_effect=httpx.HTTPError("Network error")
         )
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -382,10 +426,13 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(
             side_effect=Exception("Unexpected error")
         )
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -419,8 +466,11 @@ class TestExplainCommand:
         )
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -447,8 +497,11 @@ class TestExplainCommand:
         mock_response.choices[0].message.content = "invalid json"
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -467,10 +520,13 @@ class TestExplainCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(
             side_effect=Exception("General error")
         )
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -505,8 +561,11 @@ class TestAssessCommandSafety:
         )
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -542,8 +601,11 @@ class TestAssessCommandSafety:
         )
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -570,8 +632,11 @@ class TestAssessCommandSafety:
         mock_response.choices[0].message.content = "invalid json"
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -590,10 +655,13 @@ class TestAssessCommandSafety:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(
             side_effect=Exception("General error")
         )
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -638,8 +706,11 @@ class TestOpenAIClientEdgeCases:
                 yield chunk
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_stream())
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -676,8 +747,11 @@ class TestOpenAIClientEdgeCases:
         )
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"
@@ -728,8 +802,11 @@ class TestOpenAIClientIntegration:
         )
 
         mock_client = Mock()
+        mock_client.chat = Mock()
+        mock_client.chat.completions = Mock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        mock_async_openai.return_value = mock_client
+
+        configure_async_openai(mock_async_openai, mock_client)
 
         client = OpenAIClient(
             api_key="sk-test123456789012345678901234567890123456789012345678"

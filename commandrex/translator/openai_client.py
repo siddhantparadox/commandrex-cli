@@ -63,7 +63,6 @@ class OpenAIClient:
             raise ValueError("Invalid OpenAI API key format")
 
         self.model = model
-        self.client = AsyncOpenAI(api_key=self.api_key)
 
         # Rate limiting parameters
         self.last_request_time = 0
@@ -259,32 +258,33 @@ class OpenAIClient:
                 {"role": "user", "content": natural_language},
             ]
 
-            if stream_callback:
-                # Streaming response for real-time feedback
-                stream = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    stream=True,
-                    response_format={"type": "json_object"},
-                )
+            async with AsyncOpenAI(api_key=self.api_key) as client:
+                if stream_callback:
+                    # Streaming response for real-time feedback
+                    stream = await client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        stream=True,
+                        response_format={"type": "json_object"},
+                    )
 
-                collected_chunks = []
-                async for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        content = chunk.choices[0].delta.content
-                        collected_chunks.append(content)
-                        if stream_callback:
-                            stream_callback(content)
+                    collected_chunks = []
+                    async for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            collected_chunks.append(content)
+                            if stream_callback:
+                                stream_callback(content)
 
-                full_response = "".join(collected_chunks)
-            else:
-                # Non-streaming response
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                )
-                full_response = response.choices[0].message.content
+                    full_response = "".join(collected_chunks)
+                else:
+                    # Non-streaming response
+                    response = await client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        response_format={"type": "json_object"},
+                    )
+                    full_response = response.choices[0].message.content
 
             # Parse the response
             try:
@@ -440,11 +440,12 @@ class OpenAIClient:
                 {"role": "user", "content": natural_language},
             ]
 
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                response_format={"type": "json_object"},
-            )
+            async with AsyncOpenAI(api_key=self.api_key) as client:
+                response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                )
             import json
 
             payload = json.loads(response.choices[0].message.content or "{}")
@@ -517,11 +518,12 @@ class OpenAIClient:
                 {"role": "user", "content": f"Explain this command: {command}"},
             ]
 
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                response_format={"type": "json_object"},
-            )
+            async with AsyncOpenAI(api_key=self.api_key) as client:
+                response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                )
 
             # Parse the response
             try:
@@ -581,11 +583,12 @@ class OpenAIClient:
                 },
             ]
 
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                response_format={"type": "json_object"},
-            )
+            async with AsyncOpenAI(api_key=self.api_key) as client:
+                response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                )
 
             # Parse the response
             try:
