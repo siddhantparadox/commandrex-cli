@@ -402,11 +402,6 @@ def translate(
     else:
         if not check_api_key():
             raise typer.Exit(1)
-        api_key_value = api_manager.get_api_key()
-
-    if not api_key_value:  # pragma: no cover - defensive safeguard
-        console.print("[bold red]Unable to determine an API key to use.[/]")
-        raise typer.Exit(1)
 
     _run_translation_flow(
         query_text=query_text,
@@ -421,7 +416,7 @@ def translate(
 def _run_translation_flow(
     *,
     query_text: str,
-    api_key_value: str,
+    api_key_value: Optional[str],
     model: str,
     execute: bool,
     multi_select: bool,
@@ -429,8 +424,12 @@ def _run_translation_flow(
 ) -> None:  # pragma: no cover - relies on rich TUI and async flows
     """Perform the heavy translation workflow after inputs are validated."""
 
-    # Create OpenAI client
-    client = openai_client.OpenAIClient(api_key=api_key_value, model=model)
+    effective_key = api_key_value or api_manager.get_api_key()
+    try:
+        client = openai_client.OpenAIClient(api_key=effective_key, model=model)
+    except ValueError as exc:
+        console.print("[bold red]Unable to determine an API key to use.[/]")
+        raise typer.Exit(1) from exc
 
     # Apply per-invocation toggle for strict validation
     if no_strict_validation:
@@ -730,11 +729,6 @@ def explain(
     else:
         if not check_api_key():
             raise typer.Exit(1)
-        api_key_value = api_manager.get_api_key()
-
-    if not api_key_value:  # pragma: no cover - defensive safeguard
-        console.print("[bold red]Unable to determine an API key to use.[/]")
-        raise typer.Exit(1)
 
     _run_explain_flow(
         command_text=command_text, api_key_value=api_key_value, model=model
@@ -742,11 +736,16 @@ def explain(
 
 
 def _run_explain_flow(
-    *, command_text: str, api_key_value: str, model: str
+    *, command_text: str, api_key_value: Optional[str], model: str
 ) -> None:  # pragma: no cover - relies on networked explain flow
     """Render the explain command output using the OpenAI client."""
 
-    client = openai_client.OpenAIClient(api_key=api_key_value, model=model)
+    effective_key = api_key_value or api_manager.get_api_key()
+    try:
+        client = openai_client.OpenAIClient(api_key=effective_key, model=model)
+    except ValueError as exc:
+        console.print("[bold red]Unable to determine an API key to use.[/]")
+        raise typer.Exit(1) from exc
 
     with console.status("[bold green]Analyzing command...[/]", spinner="dots"):
         try:
