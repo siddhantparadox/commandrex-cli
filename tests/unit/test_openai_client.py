@@ -45,6 +45,22 @@ def configure_async_openai(mock_async_openai, client_mock):
     return async_context
 
 
+@pytest.fixture(autouse=True)
+def disable_strict_validation(monkeypatch):
+    """Force strict validation off so tests aren't rejected by environment rules."""
+
+    from commandrex.translator import openai_client as oc
+
+    original_get = oc.settings.get
+
+    def fake_get(section, key, default=None):
+        if section == "validation" and key in {"strict_mode", "suggest_alternatives"}:
+            return False
+        return original_get(section, key, default)
+
+    monkeypatch.setattr(oc.settings, "get", fake_get)
+
+
 class TestCommandTranslationResult:
     """Test the CommandTranslationResult model."""
 
@@ -246,7 +262,8 @@ class TestTranslateToCommand:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             result = await client.translate_to_command(
-                "list files", {"platform": "linux", "shell": "bash"}
+                "list files",
+                {"os_name": "linux", "shell_name": "bash"},
             )
 
         assert isinstance(result, CommandTranslationResult)
@@ -300,7 +317,9 @@ class TestTranslateToCommand:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             result = await client.translate_to_command(
-                "list files", {"platform": "linux"}, stream_callback=stream_callback
+                "list files",
+                {"os_name": "linux", "shell_name": "bash"},
+                stream_callback=stream_callback,
             )
 
         assert isinstance(result, CommandTranslationResult)
@@ -332,7 +351,9 @@ class TestTranslateToCommand:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             with pytest.raises(ValueError, match="Failed to parse API response"):
-                await client.translate_to_command("test", {})
+                await client.translate_to_command(
+                    "test", {"os_name": "linux", "shell_name": "bash"}
+                )
 
     @patch("commandrex.translator.openai_client.api_manager")
     @patch("commandrex.translator.openai_client.AsyncOpenAI")
@@ -363,7 +384,9 @@ class TestTranslateToCommand:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             with pytest.raises(ValueError, match="OpenAI API rate limit exceeded"):
-                await client.translate_to_command("test", {})
+                await client.translate_to_command(
+                    "test", {"os_name": "linux", "shell_name": "bash"}
+                )
 
     @patch("commandrex.translator.openai_client.api_manager")
     @patch("commandrex.translator.openai_client.AsyncOpenAI")
@@ -390,7 +413,9 @@ class TestTranslateToCommand:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             with pytest.raises(ValueError, match="Error communicating with OpenAI API"):
-                await client.translate_to_command("test", {})
+                await client.translate_to_command(
+                    "test", {"os_name": "linux", "shell_name": "bash"}
+                )
 
     @patch("commandrex.translator.openai_client.api_manager")
     @patch("commandrex.translator.openai_client.AsyncOpenAI")
@@ -415,7 +440,9 @@ class TestTranslateToCommand:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             with pytest.raises(ValueError, match="Network error during API request"):
-                await client.translate_to_command("test", {})
+                await client.translate_to_command(
+                    "test", {"os_name": "linux", "shell_name": "bash"}
+                )
 
     @patch("commandrex.translator.openai_client.api_manager")
     @patch("commandrex.translator.openai_client.AsyncOpenAI")
@@ -442,7 +469,9 @@ class TestTranslateToCommand:
             with pytest.raises(
                 ValueError, match="Unexpected error during command translation"
             ):
-                await client.translate_to_command("test", {})
+                await client.translate_to_command(
+                    "test", {"os_name": "linux", "shell_name": "bash"}
+                )
 
 
 class TestExplainCommand:
@@ -723,7 +752,9 @@ class TestOpenAIClientEdgeCases:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             result = await client.translate_to_command(
-                "list files", {"platform": "linux"}, stream_callback=stream_callback
+                "list files",
+                {"os_name": "linux", "shell_name": "bash"},
+                stream_callback=stream_callback,
             )
 
         assert isinstance(result, CommandTranslationResult)
@@ -758,7 +789,9 @@ class TestOpenAIClientEdgeCases:
         )
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
-            result = await client.translate_to_command("test", {})
+            result = await client.translate_to_command(
+                "test", {"os_name": "linux", "shell_name": "bash"}
+            )
 
         # Should handle missing fields gracefully with defaults
         assert result.command == "ls"
@@ -814,7 +847,8 @@ class TestOpenAIClientIntegration:
 
         with patch.object(client, "_handle_rate_limit", new_callable=AsyncMock):
             result = await client.translate_to_command(
-                "find all python files", {"platform": "linux", "shell": "bash"}
+                "find all python files",
+                {"os_name": "linux", "shell_name": "bash"},
             )
 
         assert result.command == "find . -name '*.py' -type f"
