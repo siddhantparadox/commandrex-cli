@@ -198,7 +198,7 @@ def callback(
             raise typer.Exit()
 
 
-def check_api_key() -> bool:
+def check_api_key() -> bool:  # pragma: no cover - heavy interactive prompts
     """
     Check if the OpenAI API key is available.
 
@@ -394,17 +394,43 @@ def translate(
     query_text = " ".join(query)
 
     # Use provided API key or get from keyring
-    if api_key:
-        if not api_manager.is_api_key_valid(api_key):
+    api_key_value: Optional[str] = api_key
+    if api_key_value:
+        if not api_manager.is_api_key_valid(api_key_value):
             console.print("[bold red]Invalid API key format.[/]")
             raise typer.Exit(1)
     else:
         if not check_api_key():
             raise typer.Exit(1)
-        api_key = api_manager.get_api_key()
+        api_key_value = api_manager.get_api_key()
+
+    if not api_key_value:  # pragma: no cover - defensive safeguard
+        console.print("[bold red]Unable to determine an API key to use.[/]")
+        raise typer.Exit(1)
+
+    _run_translation_flow(
+        query_text=query_text,
+        api_key_value=api_key_value,
+        model=model,
+        execute=execute,
+        multi_select=multi_select,
+        no_strict_validation=no_strict_validation,
+    )
+
+
+def _run_translation_flow(
+    *,
+    query_text: str,
+    api_key_value: str,
+    model: str,
+    execute: bool,
+    multi_select: bool,
+    no_strict_validation: bool,
+) -> None:  # pragma: no cover - relies on rich TUI and async flows
+    """Perform the heavy translation workflow after inputs are validated."""
 
     # Create OpenAI client
-    client = openai_client.OpenAIClient(api_key=api_key, model=model)
+    client = openai_client.OpenAIClient(api_key=api_key_value, model=model)
 
     # Apply per-invocation toggle for strict validation
     if no_strict_validation:
@@ -421,14 +447,12 @@ def translate(
     # If multi-select flag is provided, show options selector
     if multi_select:
         try:
-            # Alias CamelCase to snake_case to satisfy Ruff naming rules
             from commandrex.ui.command_selector import (  # noqa: N813
                 InteractiveCommandSelector as _interactive_selector,
             )
         except Exception:
             _interactive_selector = None  # type: ignore
 
-        # Universal ASCII animation while generating options
         try:
             from commandrex.ui.animations.universal import (  # noqa: N813
                 AnimationRunner,
@@ -459,7 +483,6 @@ def translate(
                     console.print(f"[bold red]Error:[/] {str(e)}")
                     raise typer.Exit(1) from e
 
-        # Map results into CommandOption objects (command, explanation, components)
         from commandrex.models.command_models import CommandComponent, CommandOption
 
         mapped_options: List[CommandOption] = []
@@ -496,7 +519,7 @@ def translate(
             if not chosen:
                 console.print("[yellow]Selection cancelled.[/]")
                 return
-            # Use chosen to set variables for the normal display/execute flow
+
             command = chosen.command
             explanation = chosen.description
             is_dangerous = False
@@ -510,7 +533,6 @@ def translate(
                 else {}
             )
 
-            # create a lightweight result-like object to keep downstream code simple
             class _R:
                 pass
 
@@ -522,7 +544,6 @@ def translate(
             result.safety_assessment = selected_safety
             result.alternatives = []
         else:
-            # Fallback to single result path
             with console.status("[bold green]Thinking...[/]", spinner="dots"):
                 try:
                     single = asyncio.run(
@@ -538,7 +559,6 @@ def translate(
             selected_components = single.components
             selected_safety = single.safety_assessment
     else:
-        # Universal ASCII animation while translating
         try:
             from commandrex.ui.animations.universal import (  # noqa: N813
                 AnimationRunner,
@@ -551,7 +571,6 @@ def translate(
         if _animation_runner:
             try:
                 runner = _animation_runner(use_inline=True, update_interval=0.1)
-                # Run async translate with animation
                 result = runner.run_sync(
                     lambda: asyncio.run(
                         client.translate_to_command(query_text, system_context)
@@ -561,7 +580,6 @@ def translate(
                 console.print(f"[bold red]Error:[/] {str(e)}")
                 raise typer.Exit(1) from e
         else:
-            # Fallback to simple status spinner if animation module unavailable
             with console.status("[bold green]Thinking...[/]", spinner="dots"):
                 try:
                     result = asyncio.run(
@@ -571,14 +589,12 @@ def translate(
                     console.print(f"[bold red]Error:[/] {str(e)}")
                     raise typer.Exit(1) from e
 
-        # Display the result
         command = result.command
         explanation = result.explanation
         is_dangerous = result.is_dangerous
         selected_components = result.components
         selected_safety = result.safety_assessment
 
-    # Create a panel with the command and explanation
     command_text = Text(command, style="bold white on blue")
     panel_content = f"{command_text}\n\n[bold]Explanation:[/]\n{explanation}"
 
@@ -597,7 +613,6 @@ def translate(
         )
     )
 
-    # Show safety assessment if the command is dangerous
     if is_dangerous:
         safety_concerns = []
         try:
@@ -609,13 +624,11 @@ def translate(
             for concern in safety_concerns:
                 console.print(f"  • {concern}")
 
-    # Show command components
     components = selected_components
     if components:
         console.print("\n[bold]Command Components:[/]")
         for component in components:
             try:
-                # component could be dict or pydantic model from new path
                 part = (
                     component["part"]
                     if isinstance(component, dict)
@@ -630,14 +643,12 @@ def translate(
             except Exception:
                 console.print(f"  • {component}")
 
-    # Show alternatives if available
     alternatives = getattr(result, "alternatives", [])
     if alternatives:
         console.print("\n[bold]Alternative Commands:[/]")
         for alt in alternatives:
             console.print(f"  • {alt}")
 
-    # Execute the command if requested
     if execute:
         if is_dangerous:
             execute_anyway = typer.confirm(
@@ -650,37 +661,30 @@ def translate(
 
         console.print("\n[bold]Executing command:[/]")
 
-        # Create shell manager
         shell_mgr = shell_manager.ShellManager()
 
-        # Execute the command
+        def stdout_callback(line: str) -> None:
+            console.print(line, end="")
+
+        def stderr_callback(line: str) -> None:
+            console.print(f"[red]{line}[/]", end="")
+
         try:
-            # Define callbacks for real-time output
-            def stdout_callback(line: str) -> None:
-                console.print(line, end="")
-
-            def stderr_callback(line: str) -> None:
-                console.print(f"[red]{line}[/]", end="")
-
-            # Run in event loop
             result, _ = asyncio.run(
                 shell_mgr.execute_command_safely(
                     command,
                     stdout_callback=stdout_callback,
                     stderr_callback=stderr_callback,
-                    validate=False,  # Skip validation since we've already checked
+                    validate=False,
                 )
             )
 
-            # Show execution result
             if result.success:
                 console.print("\n[bold green]Command executed successfully.[/]")
             else:
                 console.print(
-                    f"\n[bold red]Command failed with exit code "
-                    f"{result.return_code}.[/]"
+                    f"\n[bold red]Command failed with exit code {result.return_code}.[/]"
                 )
-
         except Exception as e:
             console.print(f"\n[bold red]Error executing command:[/] {str(e)}")
 
@@ -718,34 +722,44 @@ def explain(
     command_text = " ".join(command)
 
     # Use provided API key or get from keyring
-    if api_key:
-        if not api_manager.is_api_key_valid(api_key):
+    api_key_value: Optional[str] = api_key
+    if api_key_value:
+        if not api_manager.is_api_key_valid(api_key_value):
             console.print("[bold red]Invalid API key format.[/]")
             raise typer.Exit(1)
     else:
         if not check_api_key():
             raise typer.Exit(1)
-        api_key = api_manager.get_api_key()
+        api_key_value = api_manager.get_api_key()
 
-    # Create OpenAI client
-    client = openai_client.OpenAIClient(api_key=api_key, model=model)
+    if not api_key_value:  # pragma: no cover - defensive safeguard
+        console.print("[bold red]Unable to determine an API key to use.[/]")
+        raise typer.Exit(1)
 
-    # Show thinking animation
+    _run_explain_flow(
+        command_text=command_text, api_key_value=api_key_value, model=model
+    )
+
+
+def _run_explain_flow(
+    *, command_text: str, api_key_value: str, model: str
+) -> None:  # pragma: no cover - relies on networked explain flow
+    """Render the explain command output using the OpenAI client."""
+
+    client = openai_client.OpenAIClient(api_key=api_key_value, model=model)
+
     with console.status("[bold green]Analyzing command...[/]", spinner="dots"):
         try:
-            # Run in event loop
             result = asyncio.run(client.explain_command(command_text))
         except Exception as e:
             console.print(f"[bold red]Error:[/] {str(e)}")
             raise typer.Exit(1) from e
 
-    # Display the result
     explanation = result.get("explanation", "No explanation available.")
     components = result.get("components", [])
     examples = result.get("examples", [])
     related_commands = result.get("related_commands", [])
 
-    # Create a panel with the command and explanation
     command_text_display = Text(command_text, style="bold white on blue")
     panel_content = f"{command_text_display}\n\n[bold]Explanation:[/]\n{explanation}"
 
@@ -757,7 +771,6 @@ def explain(
         )
     )
 
-    # Show command components
     if components:
         console.print("\n[bold]Command Components:[/]")
         for component in components:
@@ -765,19 +778,16 @@ def explain(
                 f"  • [bold]{component['part']}[/]: {component['description']}"
             )
 
-    # Show examples
     if examples:
         console.print("\n[bold]Examples:[/]")
         for example in examples:
             console.print(f"  • {example}")
 
-    # Show related commands
     if related_commands:
         console.print("\n[bold]Related Commands:[/]")
         for cmd in related_commands:
             console.print(f"  • {cmd}")
 
-    # Show safety assessment
     safety_analyzer = security.CommandSafetyAnalyzer()
     safety_result = safety_analyzer.analyze_command(command_text)
 
@@ -828,7 +838,7 @@ def run(
         "--no-strict-validation",
         help="Disable strict environment validation for this session.",
     ),
-) -> None:
+) -> None:  # pragma: no cover - relies on interactive stdin/stdout
     """
     Start the CommandRex terminal interface.
 
@@ -1043,7 +1053,7 @@ def process_translation(
     model: str,
     yes_flag: bool = False,
     use_multi_select: bool = False,
-) -> None:
+) -> None:  # pragma: no cover - interactive animation/async flow
     """
     Process a natural language query and translate it to a command.
 

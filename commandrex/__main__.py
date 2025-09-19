@@ -7,5 +7,11 @@ python -m commandrex
 
 from commandrex.main import app
 
-if __name__ == "__main__":
+
+def main() -> None:
+    """Run the CommandRex CLI entrypoint."""
     app()
+
+
+if __name__ == "__main__":
+    main()

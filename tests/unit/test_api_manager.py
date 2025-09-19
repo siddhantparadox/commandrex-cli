@@ -302,25 +302,27 @@ class TestApiManagerIntegration:
 
     def test_full_api_key_lifecycle(self, mock_keyring, valid_api_key):
         """Test complete API key lifecycle: save, get, delete."""
-        # Initially no key
-        mock_keyring["get"].return_value = None
-        assert api_manager.get_api_key() is None
+        # Ensure environment fallback does not interfere with lifecycle flow
+        with patch.dict(os.environ, {api_manager.ENV_VAR_NAME: ""}, clear=False):
+            # Initially no key
+            mock_keyring["get"].return_value = None
+            assert api_manager.get_api_key() is None
 
-        # Save key
-        mock_keyring["set"].return_value = None
-        assert api_manager.save_api_key(valid_api_key) is True
+            # Save key
+            mock_keyring["set"].return_value = None
+            assert api_manager.save_api_key(valid_api_key) is True
 
-        # Get saved key
-        mock_keyring["get"].return_value = valid_api_key
-        assert api_manager.get_api_key() == valid_api_key
+            # Get saved key
+            mock_keyring["get"].return_value = valid_api_key
+            assert api_manager.get_api_key() == valid_api_key
 
-        # Delete key
-        mock_keyring["delete"].return_value = None
-        assert api_manager.delete_api_key() is True
+            # Delete key
+            mock_keyring["delete"].return_value = None
+            assert api_manager.delete_api_key() is True
 
-        # Verify key is gone
-        mock_keyring["get"].return_value = None
-        assert api_manager.get_api_key() is None
+            # Verify key is gone
+            mock_keyring["get"].return_value = None
+            assert api_manager.get_api_key() is None
 
     def test_environment_fallback_behavior(self, mock_keyring, valid_api_key):
         """Test that environment variable works as fallback."""

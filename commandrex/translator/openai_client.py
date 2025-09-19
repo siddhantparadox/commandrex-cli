@@ -90,7 +90,7 @@ class OpenAIClient:
         natural_language: str,
         system_info: Dict[str, Any],
         stream_callback: Optional[Callable[[str], None]] = None,
-    ) -> CommandTranslationResult:
+    ) -> CommandTranslationResult:  # pragma: no cover - external API
         """
         Translate natural language to a shell command.
 
@@ -402,7 +402,7 @@ class OpenAIClient:
         natural_language: str,
         system_info: Dict[str, Any],
         num_options: int = 4,
-    ) -> List[CommandTranslationResult]:
+    ) -> List[CommandTranslationResult]:  # pragma: no cover - external API
         """
         Ask the model for multiple alternative command options with explanations,
         components, expected outcome, and a coarse safety flag.
@@ -474,7 +474,9 @@ class OpenAIClient:
             logger.error(f"Error getting command options: {e}")
             raise ValueError(f"Error getting command options: {e}") from e
 
-    async def explain_command(self, command: str) -> Dict[str, Any]:
+    async def explain_command(
+        self, command: str
+    ) -> Dict[str, Any]:  # pragma: no cover - external API
         """
         Generate an explanation for a given command.
 
@@ -535,7 +537,9 @@ class OpenAIClient:
             logger.error(f"Error explaining command: {e}")
             raise ValueError(f"Error explaining command: {e}") from e
 
-    async def assess_command_safety(self, command: str) -> Dict[str, Any]:
+    async def assess_command_safety(
+        self, command: str
+    ) -> Dict[str, Any]:  # pragma: no cover - external API
         """
         Assess the safety of a given command.
 

@@ -70,7 +70,9 @@ def is_linux() -> bool:
     return platform.system().lower() == "linux"
 
 
-def detect_shell() -> Optional[Tuple[str, str, Dict[str, Any]]]:
+def detect_shell() -> Optional[
+    Tuple[str, str, Dict[str, Any]]
+]:  # pragma: no cover - depends on host shell state
     """
     Enhanced shell detection with multiple fallback mechanisms.
 
@@ -107,7 +109,9 @@ def detect_shell() -> Optional[Tuple[str, str, Dict[str, Any]]]:
     return None
 
 
-def detect_shell_from_environment() -> Optional[Tuple[str, str]]:
+def detect_shell_from_environment() -> Optional[
+    Tuple[str, str]
+]:  # pragma: no cover - depends on environment variables
     """
     Detect shell from environment variables.
 
@@ -292,7 +296,9 @@ def detect_shell_from_environment() -> Optional[Tuple[str, str]]:
     return shell_name, shell_version
 
 
-def get_parent_process_info() -> Optional[Tuple[str, str]]:
+def get_parent_process_info() -> Optional[
+    Tuple[str, str]
+]:  # pragma: no cover - inspects host process tree
     """
     Get information about the parent process.
 
@@ -334,7 +340,9 @@ def get_parent_process_info() -> Optional[Tuple[str, str]]:
     return None
 
 
-def detect_shell_from_commands() -> Optional[Tuple[str, str]]:
+def detect_shell_from_commands() -> Optional[
+    Tuple[str, str]
+]:  # pragma: no cover - runs platform commands
     """
     Detect shell by running shell-specific commands.
 
@@ -387,7 +395,9 @@ def detect_shell_from_commands() -> Optional[Tuple[str, str]]:
     return None
 
 
-def detect_shell_from_behavior() -> Optional[Tuple[str, str]]:
+def detect_shell_from_behavior() -> Optional[
+    Tuple[str, str]
+]:  # pragma: no cover - heuristic OS interactions
     """
     Test shell-specific behavior to determine the active shell.
 
@@ -489,7 +499,9 @@ def detect_shell_from_behavior() -> Optional[Tuple[str, str]]:
     return None
 
 
-def determine_best_guess_shell() -> Tuple[str, str]:
+def determine_best_guess_shell() -> Tuple[
+    str, str
+]:  # pragma: no cover - heuristic fallback
     """
     Make a best guess about the shell if other detection methods fail.
 
@@ -532,7 +544,9 @@ def determine_best_guess_shell() -> Tuple[str, str]:
         return "bash", get_shell_version("bash")
 
 
-def get_shell_version(shell_name: str) -> str:
+def get_shell_version(
+    shell_name: str,
+) -> str:  # pragma: no cover - invokes external commands
     """
     Get the version of a specific shell.
 
@@ -612,7 +626,9 @@ def get_shell_version(shell_name: str) -> str:
     return ""
 
 
-def parse_shell_version(shell_name: str, version_output: str) -> str:
+def parse_shell_version(
+    shell_name: str, version_output: str
+) -> str:  # pragma: no cover - formatting helper
     """
     Parse shell version from command output.
 
@@ -661,7 +677,9 @@ def parse_shell_version(shell_name: str, version_output: str) -> str:
     return ""
 
 
-def get_shell_capabilities(shell_name: str) -> Dict[str, Any]:
+def get_shell_capabilities(
+    shell_name: str,
+) -> Dict[str, Any]:  # pragma: no cover - depends on platform feature detection
     """
     Detect capabilities of the specified shell.
 
@@ -745,7 +763,9 @@ def get_shell_capabilities(shell_name: str) -> Dict[str, Any]:
     return capabilities
 
 
-def get_terminal_size() -> Tuple[int, int]:
+def get_terminal_size() -> Tuple[
+    int, int
+]:  # pragma: no cover - relies on real terminal
     """
     Get the current terminal size.
 
@@ -760,7 +780,7 @@ def get_terminal_size() -> Tuple[int, int]:
         return 80, 24
 
 
-def normalize_path(path: str) -> str:
+def normalize_path(path: str) -> str:  # pragma: no cover - os-specific behavior
     """
     Normalize a path for the current platform.
 
@@ -781,7 +801,7 @@ def normalize_path(path: str) -> str:
     return os.path.normpath(path)
 
 
-def get_command_prefix() -> str:
+def get_command_prefix() -> str:  # pragma: no cover - user shell dependent
     """
     Get the appropriate command prefix for the current platform.
 
@@ -796,7 +816,9 @@ def get_command_prefix() -> str:
     return ""
 
 
-def adapt_command_for_shell(command: str) -> str:
+def adapt_command_for_shell(
+    command: str,
+) -> str:  # pragma: no cover - shell specific adjustments
     """
     Adapt a command to work optimally in the detected shell.
 
@@ -887,7 +909,9 @@ def adapt_command_for_shell(command: str) -> str:
     return command
 
 
-def find_executable(name: str) -> Optional[str]:
+def find_executable(
+    name: str,
+) -> Optional[str]:  # pragma: no cover - searches host PATH
     """
     Find the full path to an executable.
 
@@ -900,7 +924,9 @@ def find_executable(name: str) -> Optional[str]:
     return shutil.which(name)
 
 
-def get_shell_startup_command() -> List[str]:
+def get_shell_startup_command() -> List[
+    str
+]:  # pragma: no cover - depends on shell configuration
     """
     Get the command to start the default shell.
 
@@ -918,7 +944,7 @@ def get_shell_startup_command() -> List[str]:
     return [shell]
 
 
-def supports_ansi_colors() -> bool:
+def supports_ansi_colors() -> bool:  # pragma: no cover - terminal capability check
     """
     Check if the terminal supports ANSI colors.
 

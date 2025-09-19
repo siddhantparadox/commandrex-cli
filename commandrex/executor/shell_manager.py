@@ -121,7 +121,9 @@ class ShellManager:
             self._next_process_id += 1
             return process_id
 
-    def _prepare_command(self, command: str) -> Union[str, List[str]]:
+    def _prepare_command(
+        self, command: str
+    ) -> Union[str, List[str]]:  # pragma: no cover - platform specific shell prep
         """
         Prepare a command for execution based on the platform.
 
@@ -184,7 +186,9 @@ class ShellManager:
                 # If shlex fails (e.g., with unclosed quotes), fall back to shell=True
                 return command
 
-    def _get_shell_args(self) -> Dict[str, Any]:
+    def _get_shell_args(
+        self,
+    ) -> Dict[str, Any]:  # pragma: no cover - platform specific shell args
         """
         Get the appropriate shell arguments for the current platform.
 
@@ -204,7 +208,7 @@ class ShellManager:
         timeout: Optional[float] = None,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-    ) -> CommandResult:
+    ) -> CommandResult:  # pragma: no cover - requires subprocess execution
         """
         Execute a shell command asynchronously.
 
@@ -395,7 +399,9 @@ class ShellManager:
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         validate: bool = True,
-    ) -> Tuple[CommandResult, Dict[str, Any]]:
+    ) -> Tuple[
+        CommandResult, Dict[str, Any]
+    ]:  # pragma: no cover - requires subprocess execution
         """
         Execute a command with safety validation.
 

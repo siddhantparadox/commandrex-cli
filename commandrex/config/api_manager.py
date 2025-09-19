@@ -45,9 +45,13 @@ def get_api_key() -> Optional[str]:
 
     # If not in keyring, try environment variable
     if not api_key:
-        api_key = os.environ.get(ENV_VAR_NAME)
-        if api_key:
+        env_value = os.environ.get(ENV_VAR_NAME)
+        if env_value and env_value.strip():
+            api_key = env_value
             logger.info(f"Using API key from environment variable {ENV_VAR_NAME}")
+        elif env_value is not None:
+            # Treat empty or whitespace-only environment values as missing
+            api_key = None
 
     return api_key
 
