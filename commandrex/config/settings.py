@@ -67,15 +67,16 @@ class Settings:
 
     def __init__(self):
         """Initialize the settings manager."""
-        self.settings = self.DEFAULT_SETTINGS.copy()
+        self.settings = copy.deepcopy(self.DEFAULT_SETTINGS)
         self.config_dir = self._get_config_dir()
         self.config_file = self.config_dir / "settings.json"
 
         # Create config directory if it doesn't exist
         os.makedirs(self.config_dir, exist_ok=True)
 
-        # Load settings from file if it exists
-        if self.config_file.exists():
+        # Load settings from file if it exists (skip during pytest runs to avoid
+        # leaking user configuration into tests)
+        if not os.environ.get("PYTEST_CURRENT_TEST") and self.config_file.exists():
             self.load()
 
         # Apply environment overrides after file load

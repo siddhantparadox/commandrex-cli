@@ -859,9 +859,6 @@ def adapt_command_for_shell(
         if "/" in command and "\\" not in command:
             command = command.replace("/", "\\")
 
-        # Adapt Unix-style redirections
-        command = re.sub(r"(\S+)\s+>\s+(\S+)", r"\1 | Out-File -FilePath \2", command)
-
     # CMD adaptations
     elif shell_name == "cmd":
         # Replace Unix commands with CMD equivalents

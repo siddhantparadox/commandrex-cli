@@ -846,14 +846,14 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.65.2"
+version = "1.109.0"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "openai-1.65.2-py3-none-any.whl", hash = "sha256:27d9fe8de876e31394c2553c4e6226378b6ed85e480f586ccfe25b7193fb1750"},
-    {file = "openai-1.65.2.tar.gz", hash = "sha256:729623efc3fd91c956f35dd387fa5c718edd528c4bed9f00b40ef290200fb2ce"},
+    {file = "openai-1.109.0-py3-none-any.whl", hash = "sha256:8c0910bdd4ee1274d5ff0354786bdd0bc79e68c158d5d2c19e24208b412e5792"},
+    {file = "openai-1.109.0.tar.gz", hash = "sha256:701e26d13e3953524ba99f44cf5fbbda40eafd41ba15a8d85b76229a2693cfe5"},
 ]
 
 [package.dependencies]
@@ -867,8 +867,10 @@ tqdm = ">4"
 typing-extensions = ">=4.11,<5"
 
 [package.extras]
+aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.8)"]
 datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
-realtime = ["websockets (>=13,<15)"]
+realtime = ["websockets (>=13,<16)"]
+voice-helpers = ["numpy (>=2.0.2)", "sounddevice (>=0.5.1)"]
 
 [[package]]
 name = "packaging"
@@ -1573,4 +1575,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "974a24f1fa6ca954ba6a1bb937fafb72897dc311f897f7dd15b8ad8e57531c03"
+content-hash = "587b9f463cb7a7e4766ed5a9d9cc12fdbf918332d82490065c56ccb00da0a846"

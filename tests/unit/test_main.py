@@ -35,7 +35,7 @@ class TestVersionHandling:
 
         version = get_version()
 
-        assert version == "0.2"
+        assert version == "0.2.1"
 
 
 class TestCallbackCommand:

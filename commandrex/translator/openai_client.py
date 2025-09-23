@@ -70,6 +70,14 @@ class OpenAIClient:
 
         logger.info(f"OpenAI client initialized with model {model}")
 
+    def _reasoning_kwargs(self) -> Optional[Dict[str, str]]:
+        """Return reasoning kwargs when the current model supports it."""
+
+        reasoning_prefixes = ("gpt-5", "o1", "o3")
+        if any(self.model.startswith(prefix) for prefix in reasoning_prefixes):
+            return {"effort": "medium"}
+        return None
+
     async def _handle_rate_limit(self) -> None:
         """
         Handle rate limiting by ensuring minimum time between requests.
@@ -83,6 +91,30 @@ class OpenAIClient:
             await asyncio.sleep(delay)
 
         self.last_request_time = time.time()
+
+    def _ensure_responses_resource(self, client: AsyncOpenAI):
+        """Ensure the AsyncOpenAI client exposes the Responses API resource."""
+
+        responses_resource = getattr(client, "responses", None)
+        if responses_resource is not None:
+            return responses_resource
+
+        try:
+            from openai.resources.responses import AsyncResponses  # type: ignore
+        except Exception as exc:  # pragma: no cover - depends on SDK
+            logger.error(
+                "AsyncOpenAI.responses is unavailable; installed openai package "
+                "lacks Responses API support: %s",
+                exc,
+            )
+            raise RuntimeError(
+                "The installed openai client is missing Responses API support. "
+                "Please upgrade to openai>=1.65.2."
+            ) from exc
+
+        responses_resource = AsyncResponses(client)
+        client.responses = responses_resource
+        return responses_resource
 
     async def translate_to_command(
         self,
@@ -247,44 +279,174 @@ class OpenAIClient:
                     "functionally equivalent command that IS available."
                 )
 
-            messages = [
+            # Build Responses API input structure
+            input_items = [
                 {
                     "role": "system",
-                    "content": "\n".join(
-                        schema_lines + ([""] + strict_lines if strict_lines else [])
-                    ),
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": "\n".join(
+                                schema_lines
+                                + ([""] + strict_lines if strict_lines else [])
+                            ),
+                        }
+                    ],
                 },
-                {"role": "system", "content": f"System information: {system_info}"},
-                {"role": "user", "content": natural_language},
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"System information: {system_info}",
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": natural_language},
+                    ],
+                },
             ]
 
+            # JSON schema for strict JSON output
+            json_schema = {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"},
+                    "explanation": {"type": "string"},
+                    "safety_assessment": {
+                        "type": "object",
+                        "properties": {
+                            "is_safe": {"type": ["boolean", "null"]},
+                            "concerns": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "default": [],
+                            },
+                            "risk_level": {
+                                "type": "string",
+                                "enum": [
+                                    "none",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "unknown",
+                                ],
+                                "default": "unknown",
+                            },
+                        },
+                        "additionalProperties": True,
+                        "default": {},
+                    },
+                    "components": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "part": {"type": "string"},
+                                "description": {"type": "string"},
+                                "type": {"type": "string"},
+                            },
+                            "additionalProperties": True,
+                        },
+                        "default": [],
+                    },
+                    "is_dangerous": {"type": "boolean", "default": False},
+                    "alternatives": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "default": [],
+                    },
+                },
+                "required": ["command"],
+                "additionalProperties": False,
+            }
+
+            text_format = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "CommandTranslation",
+                    "schema": json_schema,
+                    "strict": True,
+                }
+            }
+
             async with AsyncOpenAI(api_key=self.api_key) as client:
+                responses_resource = self._ensure_responses_resource(client)
                 if stream_callback:
-                    # Streaming response for real-time feedback
-                    stream = await client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        stream=True,
-                        response_format={"type": "json_object"},
-                    )
+                    # Streaming via Responses API
+                    stream_method = getattr(responses_resource, "stream", None)
+                    if stream_method is None:
+                        raise RuntimeError(
+                            "The installed openai client does not support streaming "
+                            "Responses API calls."
+                        )
+                    stream_kwargs = {
+                        "model": self.model,
+                        "input": input_items,
+                        "text": text_format,
+                        "store": False,
+                    }
+                    reasoning_args = self._reasoning_kwargs()
+                    if reasoning_args:
+                        stream_kwargs["reasoning"] = reasoning_args
 
-                    collected_chunks = []
-                    async for chunk in stream:
-                        if chunk.choices[0].delta.content:
-                            content = chunk.choices[0].delta.content
-                            collected_chunks.append(content)
-                            if stream_callback:
-                                stream_callback(content)
+                    stream = await stream_method(**stream_kwargs)
 
-                    full_response = "".join(collected_chunks)
+                    collected_chunks: List[str] = []
+                    async for event in stream:
+                        # Only capture text deltas for output
+                        et = getattr(event, "type", None)
+                        if et == "response.output_text.delta":
+                            piece = getattr(event, "delta", None)
+                            if piece:
+                                collected_chunks.append(piece)
+                                if stream_callback:
+                                    stream_callback(piece)
+                    # Fetch the final response to ensure completion if available
+                    final_output_text = ""
+                    try:
+                        get_final = getattr(stream, "get_final_response", None)
+                        if get_final is not None:
+                            final = await get_final()
+                            final_output_text = getattr(final, "output_text", "")
+                    except Exception:
+                        final_output_text = ""
+                    full_response = "".join(collected_chunks) or final_output_text
                 else:
-                    # Non-streaming response
-                    response = await client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        response_format={"type": "json_object"},
-                    )
-                    full_response = response.choices[0].message.content
+                    # Non-streaming response via Responses API
+                    create_method = getattr(responses_resource, "create", None)
+                    if create_method is None:
+                        raise RuntimeError(
+                            "The installed openai client does not support Responses API "
+                            "create calls."
+                        )
+                    create_kwargs = {
+                        "model": self.model,
+                        "input": input_items,
+                        "text": text_format,
+                        "store": False,
+                    }
+                    reasoning_args = self._reasoning_kwargs()
+                    if reasoning_args:
+                        create_kwargs["reasoning"] = reasoning_args
+
+                    response = await create_method(**create_kwargs)
+                    # Prefer convenience property when available
+                    full_response = getattr(response, "output_text", None) or ""
+                    if not full_response:
+                        # Fallback: join output_text parts if present
+                        try:
+                            outputs = getattr(response, "output", [])
+                            parts = []
+                            for item in outputs:
+                                if getattr(item, "type", None) == "output_text":
+                                    parts.append(getattr(item, "text", ""))
+                            full_response = "".join(parts)
+                        except Exception:
+                            full_response = ""
 
             # Parse the response
             try:
@@ -431,24 +593,109 @@ class OpenAIClient:
                 "  ]",
                 "}",
             ]
-            messages = [
+            input_items = [
                 {
                     "role": "system",
-                    "content": "\n".join(schema_lines),
+                    "content": [
+                        {"type": "input_text", "text": "\n".join(schema_lines)}
+                    ],
                 },
-                {"role": "system", "content": f"System information: {system_info}"},
-                {"role": "user", "content": natural_language},
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"System information: {system_info}",
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": natural_language},
+                    ],
+                },
             ]
 
+            # Simple schema for options array
+            options_schema = {
+                "type": "object",
+                "properties": {
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "command": {"type": "string"},
+                                "description": {"type": "string"},
+                                "components": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "part": {"type": "string"},
+                                            "description": {"type": "string"},
+                                            "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "command",
+                                                    "subcommand",
+                                                    "flag",
+                                                    "argument",
+                                                    "operator",
+                                                    "pipe",
+                                                    "redirection",
+                                                    "other",
+                                                ],
+                                            },
+                                        },
+                                        "required": ["part", "description", "type"],
+                                        "additionalProperties": False,
+                                    },
+                                    "default": [],
+                                },
+                            },
+                            "required": ["command", "description", "components"],
+                            "additionalProperties": False,
+                        },
+                        "default": [],
+                    }
+                },
+                "required": ["options"],
+                "additionalProperties": False,
+            }
+
+            text_format = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "CommandOptions",
+                    "schema": options_schema,
+                    "strict": True,
+                }
+            }
+
             async with AsyncOpenAI(api_key=self.api_key) as client:
-                response = await client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                )
+                responses_resource = self._ensure_responses_resource(client)
+                create_method = getattr(responses_resource, "create", None)
+                if create_method is None:
+                    raise RuntimeError(
+                        "The installed openai client does not support Responses API "
+                        "create calls."
+                    )
+                request_kwargs = {
+                    "model": self.model,
+                    "input": input_items,
+                    "text": text_format,
+                    "store": False,
+                }
+                reasoning_args = self._reasoning_kwargs()
+                if reasoning_args:
+                    request_kwargs["reasoning"] = reasoning_args
+
+                response = await create_method(**request_kwargs)
             import json
 
-            payload = json.loads(response.choices[0].message.content or "{}")
+            payload = json.loads(getattr(response, "output_text", "{}") or "{}")
             raw_options = payload.get("options", [])
             results: List[CommandTranslationResult] = []
             for opt in raw_options:
@@ -493,43 +740,81 @@ class OpenAIClient:
         await self._handle_rate_limit()
 
         try:
-            messages = [
+            input_items = [
                 {
                     "role": "system",
-                    "content": (
-                        "You are CommandRex, an expert in explaining terminal "
-                        "commands. "
-                        "Your task is to explain the given command in a clear, "
-                        "educational way. "
-                        "Break down each component and explain what it does.\n\n"
-                        "IMPORTANT: You must respond in JSON format with the following "
-                        "structure:\n"
-                        "{\n"
-                        '  "explanation": "overall explanation of the command",\n'
-                        '  "components": [\n'
-                        '    {"part": "command_part", "description": "what this part '
-                        'does"}\n'
-                        "  ],\n"
-                        '  "examples": ["example usage 1", "example usage 2"],\n'
-                        '  "related_commands": ["related1", "related2"]\n'
-                        "}\n"
-                    ),
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": (
+                                "You are CommandRex, an expert in explaining terminal "
+                                "commands. "
+                                "Your task is to explain the given command in a clear, "
+                                "educational way. "
+                                "Break down each component and explain what it does.\n\n"
+                                "IMPORTANT: Respond in JSON with keys: explanation, components, "
+                                "examples, related_commands."
+                            ),
+                        }
+                    ],
                 },
-                {"role": "user", "content": f"Explain this command: {command}"},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"Explain this command: {command}",
+                        }
+                    ],
+                },
             ]
 
+            schema = {
+                "type": "object",
+                "properties": {
+                    "explanation": {"type": "string"},
+                    "components": {"type": "array"},
+                    "examples": {"type": "array"},
+                    "related_commands": {"type": "array"},
+                },
+                "required": ["explanation", "components"],
+                "additionalProperties": False,
+            }
+
+            text_format = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "ExplainCommand",
+                    "schema": schema,
+                    "strict": True,
+                }
+            }
+
             async with AsyncOpenAI(api_key=self.api_key) as client:
-                response = await client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                )
+                responses_resource = self._ensure_responses_resource(client)
+                create_method = getattr(responses_resource, "create", None)
+                if create_method is None:
+                    raise RuntimeError(
+                        "The installed openai client does not support Responses API "
+                        "create calls."
+                    )
+                options_kwargs = {
+                    "model": self.model,
+                    "input": input_items,
+                    "text": text_format,
+                    "store": False,
+                }
+                reasoning_args = self._reasoning_kwargs()
+                if reasoning_args:
+                    options_kwargs["reasoning"] = reasoning_args
+
+                response = await create_method(**options_kwargs)
 
             # Parse the response
             try:
                 import json
 
-                response_data = json.loads(response.choices[0].message.content)
+                response_data = json.loads(getattr(response, "output_text", "{}"))
                 return response_data
             except (json.JSONDecodeError, KeyError) as e:
                 logger.error(f"Failed to parse API response: {e}")
@@ -557,44 +842,81 @@ class OpenAIClient:
         await self._handle_rate_limit()
 
         try:
-            messages = [
+            input_items = [
                 {
                     "role": "system",
-                    "content": (
-                        "You are CommandRex, an expert in terminal command safety. "
-                        "Your task is to assess the safety of the given command. "
-                        "Identify any potentially dangerous operations, such as file "
-                        "deletion, "
-                        "system modifications, or network operations.\n\n"
-                        "IMPORTANT: You must respond in JSON format with the following "
-                        "structure:\n"
-                        "{\n"
-                        '  "is_safe": true/false,\n'
-                        '  "risk_level": "none/low/medium/high",\n'
-                        '  "concerns": ["concern1", "concern2"],\n'
-                        '  "recommendations": ["recommendation1", "recommendation2"],\n'
-                        '  "safer_alternatives": ["alternative1", "alternative2"]\n'
-                        "}\n"
-                    ),
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": (
+                                "You are CommandRex, an expert in terminal command safety. "
+                                "Assess the safety of the given command. Identify dangerous "
+                                "operations and propose safer alternatives."
+                            ),
+                        }
+                    ],
                 },
                 {
                     "role": "user",
-                    "content": f"Assess the safety of this command: {command}",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"Assess the safety of this command: {command}",
+                        }
+                    ],
                 },
             ]
 
+            schema = {
+                "type": "object",
+                "properties": {
+                    "is_safe": {"type": "boolean"},
+                    "risk_level": {
+                        "type": "string",
+                        "enum": ["none", "low", "medium", "high"],
+                    },
+                    "concerns": {"type": "array"},
+                    "recommendations": {"type": "array"},
+                    "safer_alternatives": {"type": "array"},
+                },
+                "required": ["is_safe", "risk_level"],
+                "additionalProperties": False,
+            }
+
+            text_format = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "SafetyAssessment",
+                    "schema": schema,
+                    "strict": True,
+                }
+            }
+
             async with AsyncOpenAI(api_key=self.api_key) as client:
-                response = await client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                )
+                responses_resource = self._ensure_responses_resource(client)
+                create_method = getattr(responses_resource, "create", None)
+                if create_method is None:
+                    raise RuntimeError(
+                        "The installed openai client does not support Responses API "
+                        "create calls."
+                    )
+                safety_kwargs = {
+                    "model": self.model,
+                    "input": input_items,
+                    "text": text_format,
+                    "store": False,
+                }
+                reasoning_args = self._reasoning_kwargs()
+                if reasoning_args:
+                    safety_kwargs["reasoning"] = reasoning_args
+
+                response = await create_method(**safety_kwargs)
 
             # Parse the response
             try:
                 import json
 
-                response_data = json.loads(response.choices[0].message.content)
+                response_data = json.loads(getattr(response, "output_text", "{}"))
                 return response_data
             except (json.JSONDecodeError, KeyError) as e:
                 logger.error(f"Failed to parse API response: {e}")

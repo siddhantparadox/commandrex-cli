@@ -7,6 +7,7 @@ handling command-line arguments and launching the application.
 
 import asyncio
 import importlib.metadata
+import os
 import sys
 from typing import List, Optional
 
@@ -36,6 +37,81 @@ app = typer.Typer(
 
 # Set up console for rich output
 console = Console()
+
+AVAILABLE_MODELS = [
+    "gpt-5-mini-2025-08-07",
+    "gpt-5-nano-2025-08-07",
+    "gpt-4.1-2025-04-14",
+    "gpt-4.1-mini-2025-04-14",
+]
+
+
+def _get_default_model() -> str:
+    """Return the persisted default model or the first available option."""
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return AVAILABLE_MODELS[0]
+
+    stored_model = settings.settings.get("api", "model", AVAILABLE_MODELS[0])
+    return stored_model if stored_model in AVAILABLE_MODELS else AVAILABLE_MODELS[0]
+
+
+def _print_status_bar(current_model: str) -> None:
+    """Render a simple status bar that shows the active model."""
+
+    bar_text = Text.assemble(
+        (" MODEL ", "reverse bold cyan"),
+        (f" {current_model} ", "reverse white"),
+    )
+    console.print(bar_text, highlight=False)
+
+
+def _handle_model_command(user_input: str, current_model: str) -> str:
+    """Process the /model slash command and persist any changes."""
+
+    tokens = user_input.split()
+    if len(tokens) == 1:
+        console.print(
+            f"[bold]Current model:[/] {current_model}\n"
+            "Use '/model list' to view available models or '/model <name>' to switch."
+        )
+        return current_model
+
+    action = tokens[1].lower()
+    if action == "list":
+        table = Table(title="Available Models", show_header=False, box=box.SIMPLE)
+        for model_name in AVAILABLE_MODELS:
+            label = (
+                f"[bold green]{model_name}[/]"
+                if model_name == current_model
+                else model_name
+            )
+            table.add_row(label)
+        console.print(table)
+        return current_model
+
+    desired_model = tokens[1]
+    if desired_model not in AVAILABLE_MODELS:
+        console.print(
+            f"[bold red]Unknown model:[/] {desired_model}. Use '/model list' to see options."
+        )
+        return current_model
+
+    if desired_model == current_model:
+        console.print(f"Already using model [bold]{current_model}[/].")
+        return current_model
+
+    if (
+        settings.settings.set("api", "model", desired_model)
+        and settings.settings.save()
+    ):
+        console.print(
+            f"[bold green]Model updated:[/] Now using {desired_model}. Change persisted."
+        )
+        return desired_model
+
+    console.print("[bold red]Failed to save model selection. Please try again.[/]")
+    return current_model
 
 
 def show_main_help() -> None:
@@ -110,7 +186,7 @@ def get_version() -> str:
     try:
         return importlib.metadata.version("commandrex")
     except importlib.metadata.PackageNotFoundError:
-        return "0.2"  # Default during development
+        return "0.2.1"  # Default during development
 
 
 @app.callback(invoke_without_command=True)
@@ -820,11 +896,12 @@ def run(
     api_key: Optional[str] = typer.Option(
         None, "--api-key", help="OpenAI API key (overrides stored key)."
     ),
-    model: str = typer.Option(
-        "gpt-5-mini-2025-08-07",
+    model: Optional[str] = typer.Option(
+        None,
         "--model",
         "-m",
         help="OpenAI model to use. Find more models at https://platform.openai.com/docs/models",
+        show_default="Saved setting or CommandRex default",
     ),
     translate_arg: Optional[str] = typer.Option(
         None,
@@ -866,6 +943,8 @@ def run(
         shell_info and shell_info[0] == "bash" and platform_utils.is_windows()
     )
 
+    resolved_model = model if model is not None else _get_default_model()
+
     # Handle direct query arguments
     if query:
         query_text = " ".join(query)
@@ -886,7 +965,7 @@ def run(
             else:
                 console.print("  • No shell detected")
 
-        process_translation(query_text, api_key, model, yes_flag=yes)
+        process_translation(query_text, api_key, resolved_model, yes_flag=yes)
         return
 
     # If a direct translation was provided, process it without interactive mode
@@ -908,7 +987,7 @@ def run(
             else:
                 console.print("  • No shell detected")
 
-        process_translation(translate_arg, api_key, model, yes_flag=yes)
+        process_translation(translate_arg, api_key, resolved_model, yes_flag=yes)
         return
 
     # Set debug mode in settings
@@ -950,6 +1029,8 @@ def run(
         if not check_api_key():
             raise typer.Exit(1)
 
+    current_model = resolved_model
+
     # Apply per-invocation toggle for strict validation (session-wide)
     if no_strict_validation:
         settings.settings.set("validation", "strict_mode", False)
@@ -983,7 +1064,7 @@ def run(
         console.print(f"  • Python: {platform_info.get('python_version', 'Unknown')}")
 
         console.print("\n[bold]Debug mode:[/] [green]Enabled[/]")
-        console.print("[bold]Model:[/] " + model)
+        console.print("[bold]Model:[/] " + current_model)
         console.print("\nPress CTRL+C to exit")
 
     try:
@@ -1014,22 +1095,30 @@ def run(
 
         while True:
             try:
-                # Print prompt and flush to ensure it's displayed
-                sys.stdout.write("> ")
-                sys.stdout.flush()
-
-                # Read a line from stdin
-                user_input = sys.stdin.readline().strip()
+                _print_status_bar(current_model)
+                user_input = console.input("> ").strip()
 
                 if user_input.lower() in ["exit", "quit"]:
                     break
 
-                if not user_input.strip():
+                if not user_input:
                     continue
 
-                # Process the translation
+                if user_input.startswith("/"):
+                    if user_input.lower().startswith("/model"):
+                        current_model = _handle_model_command(user_input, current_model)
+                    else:
+                        console.print(
+                            f"[bold yellow]Unknown slash command:[/] {user_input.split()[0]}"
+                        )
+                    continue
+
                 process_translation(
-                    user_input, api_key, model, yes_flag=False, use_multi_select=True
+                    user_input,
+                    api_key,
+                    current_model,
+                    yes_flag=False,
+                    use_multi_select=True,
                 )
             except KeyboardInterrupt:
                 # This will be handled by our signal handler

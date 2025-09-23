@@ -231,10 +231,9 @@ class TestTranslateToCommand:
         """Test successful command translation."""
         mock_api_manager.is_api_key_valid.return_value = True
 
-        # Mock the OpenAI response
+        # Mock the Responses API response
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = json.dumps(
+        mock_response.output_text = json.dumps(
             {
                 "command": "ls -la",
                 "explanation": "List files with details",
@@ -250,9 +249,8 @@ class TestTranslateToCommand:
         )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -288,21 +286,20 @@ class TestTranslateToCommand:
             ' "components": [], "is_dangerous": false}',
         ]
 
-        mock_chunks = []
-        for chunk_content in response_chunks:
-            mock_chunk = Mock()
-            mock_chunk.choices = [Mock()]
-            mock_chunk.choices[0].delta.content = chunk_content
-            mock_chunks.append(mock_chunk)
+        class Event:
+            def __init__(self, delta):
+                self.type = "response.output_text.delta"
+                self.delta = delta
 
         async def mock_stream():
-            for chunk in mock_chunks:
-                yield chunk
+            for chunk_content in response_chunks:
+                yield Event(chunk_content)
 
+        Mock()
+        # For async iteration we just return the async generator
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_stream())
+        mock_client.responses = Mock()
+        mock_client.responses.stream = AsyncMock(return_value=mock_stream())
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -335,13 +332,11 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "invalid json"
+        mock_response.output_text = "invalid json"
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -368,9 +363,8 @@ class TestTranslateToCommand:
         mock_response.request = Mock()
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(
             side_effect=RateLimitError(
                 "Rate limit exceeded", response=mock_response, body=None
             )
@@ -397,11 +391,10 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
+        mock_client.responses = Mock()
         # Create a mock request for APIError
         mock_request = Mock()
-        mock_client.chat.completions.create = AsyncMock(
+        mock_client.responses.create = AsyncMock(
             side_effect=APIError("API error", request=mock_request, body=None)
         )
 
@@ -426,9 +419,8 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(
             side_effect=httpx.HTTPError("Network error")
         )
 
@@ -453,9 +445,8 @@ class TestTranslateToCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(
             side_effect=Exception("Unexpected error")
         )
 
@@ -484,8 +475,7 @@ class TestExplainCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = json.dumps(
+        mock_response.output_text = json.dumps(
             {
                 "explanation": "Lists files in the current directory",
                 "components": [{"part": "ls", "description": "list command"}],
@@ -495,9 +485,8 @@ class TestExplainCommand:
         )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -522,13 +511,11 @@ class TestExplainCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "invalid json"
+        mock_response.output_text = "invalid json"
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -549,11 +536,8 @@ class TestExplainCommand:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(
-            side_effect=Exception("General error")
-        )
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(side_effect=Exception("General error"))
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -578,8 +562,7 @@ class TestAssessCommandSafety:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = json.dumps(
+        mock_response.output_text = json.dumps(
             {
                 "is_safe": True,
                 "risk_level": "low",
@@ -590,9 +573,8 @@ class TestAssessCommandSafety:
         )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -618,8 +600,7 @@ class TestAssessCommandSafety:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = json.dumps(
+        mock_response.output_text = json.dumps(
             {
                 "is_safe": False,
                 "risk_level": "high",
@@ -630,9 +611,8 @@ class TestAssessCommandSafety:
         )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -657,13 +637,11 @@ class TestAssessCommandSafety:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "invalid json"
+        mock_response.output_text = "invalid json"
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -684,11 +662,8 @@ class TestAssessCommandSafety:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(
-            side_effect=Exception("General error")
-        )
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(side_effect=Exception("General error"))
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -713,31 +688,21 @@ class TestOpenAIClientEdgeCases:
         mock_api_manager.is_api_key_valid.return_value = True
 
         # Mock streaming response with some None content
-        mock_chunks = []
-
-        # First chunk with None content
-        mock_chunk1 = Mock()
-        mock_chunk1.choices = [Mock()]
-        mock_chunk1.choices[0].delta.content = None
-        mock_chunks.append(mock_chunk1)
-
-        # Second chunk with actual content
-        mock_chunk2 = Mock()
-        mock_chunk2.choices = [Mock()]
-        mock_chunk2.choices[0].delta.content = (
-            '{"command": "ls", "explanation": "test", "safety_assessment": {}, '
-            '"components": [], "is_dangerous": false}'
-        )
-        mock_chunks.append(mock_chunk2)
+        class Event:
+            def __init__(self, delta):
+                self.type = "response.output_text.delta"
+                self.delta = delta
 
         async def mock_stream():
-            for chunk in mock_chunks:
-                yield chunk
+            yield Event(None)
+            yield Event(
+                '{"command": "ls", "explanation": "test", "safety_assessment": {}, '
+                '"components": [], "is_dangerous": false}'
+            )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_stream())
+        mock_client.responses = Mock()
+        mock_client.responses.stream = AsyncMock(return_value=mock_stream())
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -769,8 +734,7 @@ class TestOpenAIClientEdgeCases:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = json.dumps(
+        mock_response.output_text = json.dumps(
             {
                 "command": "ls",
                 # Missing other required fields
@@ -778,9 +742,8 @@ class TestOpenAIClientEdgeCases:
         )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -812,8 +775,7 @@ class TestOpenAIClientIntegration:
         mock_api_manager.is_api_key_valid.return_value = True
 
         mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = json.dumps(
+        mock_response.output_text = json.dumps(
             {
                 "command": "find . -name '*.py' -type f",
                 "explanation": "Find all Python files in current directory and "
@@ -835,9 +797,8 @@ class TestOpenAIClientIntegration:
         )
 
         mock_client = Mock()
-        mock_client.chat = Mock()
-        mock_client.chat.completions = Mock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.responses = Mock()
+        mock_client.responses.create = AsyncMock(return_value=mock_response)
 
         configure_async_openai(mock_async_openai, mock_client)
 
@@ -859,8 +820,8 @@ class TestOpenAIClientIntegration:
         assert len(result.alternatives) == 2
 
         # Verify the API was called with correct parameters
-        mock_client.chat.completions.create.assert_called_once()
-        call_args = mock_client.chat.completions.create.call_args
+        mock_client.responses.create.assert_called_once()
+        call_args = mock_client.responses.create.call_args
         assert call_args[1]["model"] == "gpt-5-mini-2025-08-07"
-        assert call_args[1]["response_format"] == {"type": "json_object"}
-        assert len(call_args[1]["messages"]) == 3  # system, system context, user
+        assert call_args[1]["store"] is False
+        assert len(call_args[1]["input"]) == 3  # system, system context, user

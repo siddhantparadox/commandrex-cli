@@ -14,6 +14,8 @@ CommandRex allows you to interact with your terminal using natural language. Sim
 - **Safety Analysis**: Automatic detection of potentially dangerous commands with warnings
 - **Cross-Platform Support**: Works on Windows, macOS, and Linux
 - **Interactive Mode**: Real-time command translation and execution with ASCII art welcome screen
+- **Persistent Model Selection**: Pick your favorite OpenAI model once and we’ll remember it for the next session
+- **Live Status Bar**: Interactive mode shows the active model at a glance so you always know what you’re using
 - **Educational Breakdowns**: Learn terminal commands through component-by-component explanations
 - **Secure API Key Management**: Your OpenAI API key is stored securely in your system's keyring
 
@@ -97,7 +99,7 @@ commandrex run
 
 This launches CommandRex in interactive mode with a welcome screen displaying "COMMAND REX" in green ASCII art. You can type natural language requests and get immediate command translations.
 
-**New in Interactive Mode**: CommandRex now presents multiple command options by default. When you enter a query, you'll see a table with suggested commands and their explanations. Use arrow keys (↑/↓) to navigate and Enter to select. Press 'q' or ESC to cancel.
+**New in Interactive Mode**: CommandRex now presents multiple command options by default. When you enter a query, you'll see a table with suggested commands and their explanations. Use arrow keys (↑/↓) to navigate and Enter to select. Press 'q' or ESC to cancel. A compact status bar appears beneath the prompt so you always know which model is active.
 
 **Options:**
 - `--debug` or `-d`: Enable debug mode with detailed system information
@@ -105,6 +107,7 @@ This launches CommandRex in interactive mode with a welcome screen displaying "C
 - `--api-key YOUR_KEY`: Use a specific OpenAI API key for this session
 - `--model MODEL_NAME`: Specify an OpenAI model (default: gpt-5-mini-2025-08-07)
 - `--translate "query"` or `-t "query"`: Directly translate a query without entering interactive mode
+- Within the session, type `/model list` to view available models or `/model <name>` to switch instantly and persist your preference
 
 **Example:**
 ```bash
@@ -132,6 +135,8 @@ commandrex translate "find all PDF files modified in the last week"
 commandrex translate "create a backup of my Documents folder" --execute
 commandrex translate "show me all files" --multi-select
 ```
+
+> Tip: Interactive `/model` changes persist, so the next `commandrex translate` run without a `--model` flag will reuse your last choice.
 
 ### Multi-Command Selection
 
